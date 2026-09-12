@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VOLTX SPKLU Totem Kiosk Display</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body style="background: #080C14;">
+
+  <!-- KIOSK HEADER -->
+  <header class="header-bar" style="background: #0F172A; border-bottom: 2px solid #1E293B;">
+    <div class="brand-badge">
+      <span class="icon-bolt" style="font-size: 1.5rem;">⚡</span>
+      <div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: #fff;">VOLTX EV CHARGING NETWORK</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">SPKLU SUDIRMAN CENTRAL HUB • STATION ID: CS-SDR-01</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 20px;">
+      <div id="liveClock" style="font-size: 1.1rem; font-weight: 700; color: #94A3B8; font-family: monospace;">--:--:--</div>
+      <div class="status-pill online">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10B981;"></span>
+        OCPP 2.0.1 ONLINE
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN KIOSK CONTAINER -->
+  <div class="kiosk-container">
+    <div class="kiosk-main-grid">
+      
+      <!-- LEFT SIDEBAR: QR CODE & RFID PAD -->
+      <div class="kiosk-sidebar-grid">
+        <div class="card" style="text-align: center;">
+          <h3 style="font-size: 1rem; margin-bottom: 6px; color: var(--cyan-neon);">📱 SCAN PORTAL DRIVER</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;">
+            Scan QR untuk masuk ke aplikasi, atau scan langsung QR pada <b>Nozzle tujuan</b> di sebelah kanan.
+          </p>
+          <div style="background: #fff; padding: 14px; border-radius: 16px; display: inline-block; margin-bottom: 12px;">
+            <div id="kioskQrCode"></div>
+          </div>
+          <div style="font-size: 0.75rem; color: #64748B; font-family: monospace; word-break: break-all;" id="kioskUrlText">
+            Loading URL...
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT SIDE: 4 NOZZLES & LIVE TELEMETRY -->
+      <div>
+        <!-- ACTIVE TELEMETRY PANEL (Appears when charging) -->
+        <div id="liveTelemetryCard" class="card" style="display: none; background: #0E1626; border: 2px solid var(--cyan-neon); box-shadow: 0 0 35px var(--cyan-glow);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="status-pill busy">⚡ CHARGING IN PROGRESS</span>
+              <span id="activeSessionCode" style="font-size: 0.85rem; color: #94A3B8; font-family: monospace;"></span>
+            </div>
+            <button class="btn btn-danger" onclick="emergencyStopKiosk()" style="padding: 8px 16px; font-size: 0.85rem;">
+              🛑 Emergency Stop
+            </button>
+          </div>
+
+          <div class="kiosk-telemetry-grid">
+            <div class="telemetry-dial">
+              <div class="dial-value" id="kioskWattVal">0</div>
+              <div class="dial-unit" id="kioskPowerUnit">W DAYA</div>
+            </div>
+
+            <div>
+              <div style="margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;">
+                  <span style="color: var(--text-muted);">Status Baterai HP</span>
+                  <span id="kioskSocVal" style="font-weight: 700; color: var(--cyan-neon);">0%</span>
+                </div>
+                <div style="height: 12px; background: var(--bg-input); border-radius: 9999px; overflow: hidden;">
+                  <div id="kioskSocBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00F0FF, #10B981); transition: width 0.5s ease;"></div>
+                </div>
+              </div>
+
+              <div class="stat-grid">
+                <div class="stat-item">
+                  <div class="label">Daya Terisi</div>
+                  <div class="val" id="kioskMahVal">0 mAh</div>
+                </div>
+                <div class="stat-item">
+                  <div class="label">Tegangan / Arus</div>
+                  <div class="val" id="kioskVoltAmpVal">0 V / 0 A</div>
+                </div>
+                <div class="stat-item">
+                  <div class="label">Akumulasi Biaya</div>
+                  <div class="val" style="color: #38BDF8;" id="kioskCostVal">Rp 0</div>
+                </div>
+                <div class="stat-item">
+                  <div class="label">Sisa Deposit</div>
+                  <div class="val" style="color: #4ADE80;" id="kioskDepositVal">Rp 0</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 NOZZLES GRID -->
+        <h2 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+          <span>🔌</span> Status Nozzle Pengisian (3 Port: AC, DC, CCS)
+        </h2>
+
+        <div class="nozzle-grid" id="connectorsContainer">
+          <!-- Dynamically filled by kiosk.js -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- REUSABLE VOLTX DIALOG MODAL (ALERT & CONFIRM) -->
+  <div class="app-dialog-overlay" id="appDialogOverlay">
+    <div class="app-dialog-box info" id="appDialogBox">
+      <div id="appDialogIcon" style="font-size: 3rem; margin-bottom: 12px; line-height: 1;">⚡</div>
+      <h3 id="appDialogTitle" style="font-size: 1.15rem; font-weight: 800; color: #fff; margin-bottom: 6px;">Pemberitahuan</h3>
+      <div id="appDialogSubtitle" style="font-size: 0.82rem; font-weight: 700; color: var(--cyan-neon); margin-bottom: 10px; display: none;"></div>
+      <p id="appDialogMessage" style="font-size: 0.86rem; color: #94A3B8; line-height: 1.5; margin-bottom: 22px; white-space: pre-line; word-break: break-word;"></p>
+      <div id="appDialogButtons" style="display: flex; gap: 10px; justify-content: center;">
+        <button id="appDialogCancelBtn" class="btn btn-secondary" style="flex: 1; padding: 12px; display: none;">Batal</button>
+        <button id="appDialogConfirmBtn" class="btn btn-primary" style="flex: 1; padding: 12px; font-weight: 700;">Mengerti</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/kiosk.js"></script>
+</body>
+</html>
