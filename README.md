@@ -42,6 +42,13 @@ Dirancang **100% tanpa perangkat IoT fisik**:
 
 ---
 
+## 💻 Demo di Laptop Berbeda?
+Jika Anda membawa simulator ini untuk demonstrasi di laptop lain (kantor, kampus, juri, atau klien), ikuti panduan praktis dan langkah setup cepat pada:
+- [**`SETUP_DEMO_LAPTOP_LAIN.md`**](file:///C:/Users/soult/Downloads/charging-station/SETUP_DEMO_LAPTOP_LAIN.md) (Panduan lengkap multi-device)
+- Script kalibrasi otomatis port USB: `python calibrate_ports.py`
+
+---
+
 ## 🧪 Menjalankan Automated Test
 ```bash
 python -m unittest discover tests
