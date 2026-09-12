@@ -56,9 +56,10 @@ def print_banner(ip, port):
     print("=" * 65)
 
 if __name__ == "__main__":
+    import os
     import uvicorn
     local_ip = get_local_ip()
-    port = 8000
+    port = int(os.environ.get("PORT", 8000))
     print_banner(local_ip, port)
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
 

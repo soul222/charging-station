@@ -87,6 +87,21 @@ class ADBBatteryMonitor:
         return result
 
     @classmethod
+    def is_adb_available(cls) -> bool:
+        import os
+        import shutil
+        if os.environ.get("RENDER") or os.environ.get("CLOUD_MODE") == "true" or os.environ.get("DISABLE_ADB") == "true":
+            return False
+        which = shutil.which("adb")
+        if which:
+            return True
+        candidates = [
+            r"C:\platform-tools\adb.exe",
+            os.path.expanduser(r"~\AppData\Local\Android\Sdk\platform-tools\adb.exe")
+        ]
+        return any(os.path.isfile(c) for c in candidates)
+
+    @classmethod
     def get_adb_binary(cls) -> str:
         import shutil
         import os
@@ -349,6 +364,10 @@ class ADBBatteryMonitor:
     @classmethod
     async def start_monitoring(cls):
         """Background coroutine that polls ADB battery info and broadcasts via WebSocket."""
+        if not cls.is_adb_available():
+            print("[ADBBatteryMonitor] ADB tidak aktif atau mode Cloud terdeteksi. Hardware monitor nonaktif (Pure Simulation Mode aktif).")
+            return
+
         if cls._is_running:
             return
         cls._is_running = True
