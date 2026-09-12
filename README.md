@@ -1,3 +1,13 @@
+---
+title: VOLTX EV Charging Station Simulator
+emoji: ⚡
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # ⚡ EV Charging Station Simulator (FastAPI & WebSockets)
 
 Sistem simulasi stasiun pengisian kendaraan listrik (EVCS / SPKLU) interaktif berbasis Python.
