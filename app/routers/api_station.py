@@ -27,28 +27,30 @@ def get_station_info(station_code: str, db: Session = Depends(get_db)):
     station = StationManager.get_station_with_connectors(db, station_code)
     return station
 
+class PlugNozzleRequest(BaseModel):
+    user_id: Optional[int] = None
+
 @router.post("/connector/{connector_id}/plug")
-async def plug_nozzle(connector_id: int, db: Session = Depends(get_db)):
-    connector = StationManager.plug_connector(db, connector_id, is_simulated=True)
-    await ChargingEngine.broadcast({
-        "event": "NOZZLE_PLUGGED",
-        "station_id": connector.station_id,
+async def plug_nozzle(connector_id: int, req: Optional[PlugNozzleRequest] = None, user_id: Optional[int] = None, db: Session = Depends(get_db)):
+    uid = req.user_id if (req and req.user_id) else user_id
+    connector = db.query(models.Connector).filter(models.Connector.id == connector_id).first()
+    if not connector:
+        raise HTTPException(status_code=404, detail="Konektor tidak ditemukan.")
+    if connector.status == "CHARGING":
+        raise HTTPException(status_code=400, detail="Konektor sedang dalam proses pengisian!")
+
+    # Mark connector simulated so ADB loop doesn't reset it
+    StationManager.simulated_plugged_ids.add(connector_id)
+
+    # Launch asynchronous standard EV handshake sequence (Mechanical lock -> BMS -> Vehicle ID -> Insulation)
+    asyncio.create_task(ChargingEngine.run_handshake(connector_id, uid))
+
+    return {
+        "status": "HANDSHAKING",
+        "message": f"Memulai inisialisasi handshake protokol dengan {connector.name}...",
         "connector_id": connector.id,
-        "connector_name": connector.name,
-        "status": connector.status
-    })
-    await ChargingEngine.broadcast({
-        "event": "PORT_NOZZLE_CONNECTED",
-        "serial": "SIMULATED-DEV",
-        "port": f"Port_#000{connector.connector_number}",
-        "port_key": f"Port USB {connector.connector_number} (Simulasi)",
-        "connector_id": connector.id,
-        "connector_name": connector.name,
-        "type_category": connector.type_category,
-        "battery_level": 45,
-        "message": f"⚡ Kabel {connector.name} berhasil dicolokkan (Simulasi)!"
-    })
-    return {"status": "SUCCESS", "message": f"{connector.name} berhasil dicolokkan ke HP!", "connector_status": connector.status}
+        "connector_name": connector.name
+    }
 
 @router.post("/connector/{connector_id}/unplug")
 async def unplug_nozzle(connector_id: int, db: Session = Depends(get_db)):
@@ -224,7 +226,7 @@ async def start_charging(req: schemas.StartChargingRequest, db: Session = Depend
 
     deposit_needed = estimate.estimated_cost
     if deposit_needed <= 0:
-        raise HTTPException(status_code=400, detail="Baterai HP sudah penuh sesuai target!")
+        deposit_needed = 15000.0
 
     # 1. Process payment / Lock deposit (raises HTTPException if insufficient balance for E-Money or Wallet)
     BillingService.process_payment(
@@ -239,11 +241,13 @@ async def start_charging(req: schemas.StartChargingRequest, db: Session = Depend
     session_code = f"EV-{datetime.utcnow().strftime('%y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
     is_smartphone = vehicle.battery_capacity_kwh <= 0.1
     target_kwh = estimate.energy_needed_kwh
-    if is_smartphone:
-        if req.manual_mah and req.manual_mah > 0:
+    if req.target_type in ("MANUAL_KWH", "MANUAL_MAH"):
+        if req.manual_kwh and req.manual_kwh > 0:
+            target_kwh = min(req.manual_kwh, estimate.energy_needed_kwh)
+        elif is_smartphone and req.manual_mah and req.manual_mah > 0:
             target_kwh = max(0.0001, round((req.manual_mah / 5000.0) * 0.02, 6))
-        else:
-            target_kwh = max(0.0001, round(estimate.energy_needed_kwh, 6))
+    elif is_smartphone:
+        target_kwh = max(0.0001, round(estimate.energy_needed_kwh, 6))
 
     new_session = models.ChargingSession(
         session_code=session_code,
@@ -383,6 +387,18 @@ def get_user_active_session(user_id: int, db: Session = Depends(get_db)):
     remaining_deposit = max(0.0, session.deposit_paid - current_cost)
     watts = (session.current_power_kw * 1000.0) if session.current_power_kw else 33.0
 
+    # Calculate layman metrics
+    efficiency = vehicle.efficiency_km_kwh if (vehicle and vehicle.efficiency_km_kwh) else 6.8
+    layman = ChargingEngine.calculate_layman_metrics(
+        energy_kwh=session.energy_delivered_kwh,
+        power_kw=session.current_power_kw,
+        efficiency_km_kwh=efficiency,
+        actual_cost=current_cost,
+        current_soc=session.current_soc,
+        target_soc=session.target_soc,
+        target_kwh=session.target_kwh
+    )
+
     return {
         "has_active_session": True,
         "session_id": session.id,
@@ -399,7 +415,12 @@ def get_user_active_session(user_id: int, db: Session = Depends(get_db)):
         "deposit_paid": session.deposit_paid,
         "current_cost": current_cost,
         "remaining_deposit": remaining_deposit,
-        "payment_method": session.payment_method
+        "payment_method": session.payment_method,
+        "car_brand": vehicle.brand if vehicle else "Hyundai",
+        "car_model": vehicle.model if vehicle else "Ioniq 5 Long Range",
+        "car_plate": vehicle.license_plate if vehicle else "B 1888 ION",
+        "battery_capacity_kwh": battery_cap,
+        **layman
     }
 
 @router.post("/emergency-reset")

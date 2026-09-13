@@ -1182,3 +1182,161 @@ body {
     font-size: 0.88rem;
   }
 }
+
+/* =======================================================
+   REAL EV SIMULATION & LAYMAN TELEMETRY STYLES
+   ======================================================= */
+.btn-demo-nozzle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid var(--border-color);
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.btn-demo-nozzle:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: var(--cyan-neon);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 240, 255, 0.15);
+}
+
+.handshake-step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #1E293B;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.handshake-step-item.active {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+}
+
+.handshake-step-item.done {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: #10B981;
+}
+
+.handshake-step-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: #1E293B;
+  color: #94A3B8;
+  flex-shrink: 0;
+}
+
+.handshake-step-item.active .handshake-step-icon {
+  background: var(--cyan-neon);
+  color: #0B0F19;
+  font-weight: 800;
+  animation: pulse-glow 1.2s infinite alternate;
+}
+
+.handshake-step-item.done .handshake-step-icon {
+  background: #10B981;
+  color: #fff;
+}
+
+@keyframes pulse-glow {
+  from { box-shadow: 0 0 5px var(--cyan-neon); }
+  to { box-shadow: 0 0 20px var(--cyan-neon); }
+}
+
+/* LAYMAN INSIGHT 2x2 GRID */
+.layman-insights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.layman-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.layman-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #00F0FF, #3B82F6);
+}
+
+.layman-card.savings::before {
+  background: linear-gradient(90deg, #10B981, #34D399);
+}
+
+.layman-card.speed::before {
+  background: linear-gradient(90deg, #A855F7, #EC4899);
+}
+
+.layman-card-label {
+  font-size: 0.68rem;
+  color: #94A3B8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.layman-card-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.layman-card-sub {
+  font-size: 0.68rem;
+  color: #38BDF8;
+  margin-top: 3px;
+}
+
+.kwh-chip {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid #1E293B;
+  color: #CBD5E1;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.kwh-chip:hover, .kwh-chip.active {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: var(--cyan-neon);
+  color: var(--cyan-neon);
+}
+

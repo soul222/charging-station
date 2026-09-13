@@ -87,25 +87,43 @@ def topup_wallet(user_id: int, req: schemas.TopUpRequest, db: Session = Depends(
 
 @router.get("/vehicles/{user_id}", response_model=List[schemas.VehicleResponse])
 def get_user_vehicles(user_id: int, db: Session = Depends(get_db)):
-    vehicles = db.query(models.Vehicle).filter(models.Vehicle.user_id == user_id).all()
-    has_phone = any(v.brand == "Smartphone" for v in vehicles)
-    if not has_phone:
-        phone_v = models.Vehicle(
-            user_id=user_id,
-            brand="Smartphone",
-            model="HP Anda (Baterai Asli Fisik)",
-            battery_capacity_kwh=0.02,
-            max_ac_kw=0.033,
-            max_dc_kw=0.065,
-            current_soc=45.0,
-            license_plate="HP-DEVICE-01"
-        )
-        db.add(phone_v)
+    # Clean up or convert any legacy Smartphone records to a Real EV
+    legacy_phones = db.query(models.Vehicle).filter(
+        models.Vehicle.user_id == user_id,
+        models.Vehicle.brand == "Smartphone"
+    ).all()
+    for lp in legacy_phones:
+        lp.brand = "Hyundai"
+        lp.model = "Ioniq 5 Long Range"
+        lp.battery_capacity_kwh = 72.6
+        lp.max_ac_kw = 11.0
+        lp.max_dc_kw = 220.0
+        lp.current_soc = 28.0
+        lp.license_plate = "B 1888 ION"
+        lp.efficiency_km_kwh = 6.8
+        lp.architecture_voltage = 800.0
+    if legacy_phones:
         db.commit()
-        db.refresh(phone_v)
-        vehicles.insert(0, phone_v)
-    else:
-        vehicles.sort(key=lambda v: 0 if v.brand == "Smartphone" else 1)
+
+    vehicles = db.query(models.Vehicle).filter(models.Vehicle.user_id == user_id).all()
+    if not vehicles:
+        default_ev = models.Vehicle(
+            user_id=user_id,
+            brand="Hyundai",
+            model="Ioniq 5 Long Range",
+            battery_capacity_kwh=72.6,
+            max_ac_kw=11.0,
+            max_dc_kw=220.0,
+            current_soc=28.0,
+            license_plate="B 1888 ION",
+            efficiency_km_kwh=6.8,
+            architecture_voltage=800.0
+        )
+        db.add(default_ev)
+        db.commit()
+        db.refresh(default_ev)
+        vehicles = [default_ev]
+
     return vehicles
 
 @router.post("/vehicles/{user_id}", response_model=schemas.VehicleResponse)

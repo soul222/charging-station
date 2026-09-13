@@ -236,9 +236,14 @@ function renderConnectors(connectors) {
           <span style="font-size:0.8rem; color:#94A3B8;">${c.connector_type} • Max ${Math.round(c.max_power_kw * 1000).toLocaleString('id-ID')} W</span>
         </div>
         <div style="font-size:0.85rem; color:#38BDF8; font-weight:600; border-top:1px solid #1E293B; padding-top:10px;">
-          Tarif: Rp ${c.tariff_per_kwh.toLocaleString("id-ID")} / 500 mAh
+          Tarif: Rp ${c.tariff_per_kwh.toLocaleString("id-ID")} / kWh
         </div>
         ${qrSection}
+        ${(!isCharging && !isClaimed) ? `
+          <button type="button" class="btn btn-secondary btn-block" onclick="triggerKioskSimulatePlug(${c.id})" style="margin-top:10px; font-size:0.75rem; padding:7px 10px; border-color: rgba(56,189,248,0.4); color: #38BDF8; border-radius: 8px;">
+            🔌 Simulasi Colok Mobil
+          </button>
+        ` : ''}
       </div>
     `;
     container.innerHTML += html;
@@ -264,6 +269,27 @@ function renderConnectors(connectors) {
   });
 }
 
+async function triggerKioskSimulatePlug(connectorId) {
+  try {
+    const res = await fetch(`/api/station/connector/${connectorId}/plug`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: 1 })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      await showAppAlert(err.detail || "Gagal inisialisasi nozzle!", { title: "Error Nozzle", type: "error" });
+    } else {
+      await showAppAlert(`Nozzle terhubung ke kendaraan!\nHandshake ISO 15118 & auto-detect mobil sedang berlangsung... Buka halaman Driver untuk melanjutkan sesi.`, {
+        title: "Handshake Dimulai",
+        type: "success"
+      });
+    }
+  } catch (err) {
+    await showAppAlert("Gagal simulasi colok nozzle: " + err, { title: "Koneksi Error", type: "error" });
+  }
+}
+
 // WebSocket Setup
 function setupWebSocket() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -284,6 +310,7 @@ function setupWebSocket() {
 function handleWsEvent(data) {
   if (
     data.event === "PORT_NOZZLE_CONNECTED" ||
+    data.event === "HANDSHAKE_COMPLETE" ||
     data.event === "NOZZLE_PLUGGED" || 
     data.event === "NOZZLE_UNPLUGGED" || 
     data.event === "NOZZLE_CLAIMED" ||
@@ -297,30 +324,48 @@ function handleWsEvent(data) {
     }
     loadStationData();
   } else if (data.event === "SESSION_STARTED") {
-
     activeSessionId = data.session_id;
     document.getElementById("liveTelemetryCard").style.display = "block";
     document.getElementById("activeSessionCode").innerText = `#${data.session_code}`;
+    if (data.car_model) {
+      const carElem = document.getElementById("kioskCarModel");
+      if (carElem) carElem.innerText = data.car_model;
+    }
     loadStationData();
   } else if (data.event === "TELEMETRY_UPDATE") {
     document.getElementById("liveTelemetryCard").style.display = "block";
-    const watts = data.current_power_w ? Math.round(data.current_power_w) : (data.current_power_kw ? (data.current_power_kw * 1000).toFixed(0) : "33");
-    const wattElem = document.getElementById("kioskWattVal") || document.getElementById("kioskKwVal");
-    if (wattElem) wattElem.innerText = watts;
+    const kw = data.current_power_kw ? data.current_power_kw.toFixed(1) : (data.current_power_w ? (data.current_power_w / 1000).toFixed(1) : "0.0");
+    const wattElem = document.getElementById("kioskWattVal");
+    if (wattElem) wattElem.innerText = kw;
+
+    const carElem = document.getElementById("kioskCarModel");
+    if (carElem && data.car_model) carElem.innerText = data.car_model;
+
     document.getElementById("kioskSocVal").innerText = data.current_soc.toFixed(1) + "%";
     document.getElementById("kioskSocBar").style.width = data.current_soc + "%";
-    const deliveredMah = data.energy_delivered_mah || Math.round((data.energy_delivered_kwh / 0.02) * TOTAL_PHONE_BATTERY_MAH);
-    const mahElem = document.getElementById("kioskMahVal") || document.getElementById("kioskKwhVal");
-    if (mahElem) mahElem.innerText = `${deliveredMah.toLocaleString('id-ID')} mAh`;
-    document.getElementById("kioskVoltAmpVal").innerText = `${data.voltage} V / ${data.current_amps} A`;
-    document.getElementById("kioskCostVal").innerText = `Rp ${data.current_cost.toLocaleString("id-ID")}`;
-    document.getElementById("kioskDepositVal").innerText = `Rp ${data.remaining_deposit.toLocaleString("id-ID")}`;
+
+    const kwhElem = document.getElementById("kioskKwhVal") || document.getElementById("kioskMahVal");
+    if (kwhElem) kwhElem.innerText = `${(data.energy_delivered_kwh || 0).toFixed(2)} kWh`;
+
+    const kmElem = document.getElementById("kioskKmVal");
+    if (kmElem) kmElem.innerText = `+${data.km_added || 0} KM`;
+
+    const speedElem = document.getElementById("kioskSpeedVal");
+    if (speedElem) speedElem.innerText = `+${(data.charging_speed_km_per_min || 0).toFixed(1)} km/m`;
+
+    const savingsElem = document.getElementById("kioskSavingsVal");
+    if (savingsElem) savingsElem.innerText = `Hemat Rp ${Math.round(data.money_saved_petrol || 0).toLocaleString('id-ID')}`;
+
+    const volt = Math.round(data.voltage_v || data.voltage || 400);
+    const amps = (data.current_a || data.current_amps || 0).toFixed(1);
+    document.getElementById("kioskVoltAmpVal").innerText = `${volt} V / ${amps} A`;
+    document.getElementById("kioskCostVal").innerText = `Rp ${Math.round(data.current_cost || 0).toLocaleString("id-ID")}`;
   } else if (data.event === "SESSION_COMPLETED") {
     document.getElementById("liveTelemetryCard").style.display = "none";
     activeSessionId = null;
     loadStationData();
-    const totalMah = data.total_energy_mah || Math.round((data.total_energy_kwh / 0.02) * TOTAL_PHONE_BATTERY_MAH);
-    showAppAlert(`Daya Masuk: ${totalMah.toLocaleString('id-ID')} mAh\nBiaya Aktual: Rp ${data.actual_cost.toLocaleString('id-ID')}\nRefund Saldo: Rp ${data.refund_amount.toLocaleString('id-ID')}`, {
+    const totalKwh = (data.total_energy_kwh || 0).toFixed(2);
+    showAppAlert(`Mobil: ${data.car_model || 'Real EV'}\nEnergi Terisi: ${totalKwh} kWh (+${data.km_added || 0} KM)\nBiaya Aktual: Rp ${Math.round(data.actual_cost || 0).toLocaleString('id-ID')}\nHemat vs Bensin: Rp ${(data.money_saved_petrol || 0).toLocaleString('id-ID')} (${data.savings_percentage || 60}%)\nRefund Saldo: Rp ${Math.round(data.refund_amount || 0).toLocaleString('id-ID')}`, {
       title: "Pengisian Selesai",
       type: "success"
     });

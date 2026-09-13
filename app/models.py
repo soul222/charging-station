@@ -32,6 +32,8 @@ class Vehicle(Base):
     max_dc_kw = Column(Float, default=150.0)
     current_soc = Column(Float, default=25.0)  # State of charge %
     license_plate = Column(String(20), default="B 1234 EV")
+    efficiency_km_kwh = Column(Float, default=6.8)  # km per kWh
+    architecture_voltage = Column(Float, default=400.0)  # 400V or 800V architecture
 
     owner = relationship("User", back_populates="vehicles")
     sessions = relationship("ChargingSession", back_populates="vehicle")

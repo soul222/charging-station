@@ -30,6 +30,29 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+def migrate_db():
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(engine)
+        tables = inspector.get_table_names()
+        if 'connectors' in tables:
+            columns = [col['name'] for col in inspector.get_columns('connectors')]
+            if 'locked_by_user_id' not in columns:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE connectors ADD COLUMN locked_by_user_id INTEGER REFERENCES users(id)"))
+        if 'vehicles' in tables:
+            v_columns = [col['name'] for col in inspector.get_columns('vehicles')]
+            if 'efficiency_km_kwh' not in v_columns:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE vehicles ADD COLUMN efficiency_km_kwh FLOAT DEFAULT 6.8"))
+            if 'architecture_voltage' not in v_columns:
+                with engine.begin() as conn:
+                    conn.execute(text("ALTER TABLE vehicles ADD COLUMN architecture_voltage FLOAT DEFAULT 400.0"))
+    except Exception:
+        pass
+
+migrate_db()
+
 def get_db():
     db = SessionLocal()
     try:
