@@ -149,7 +149,7 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 140px;
 }
 
 .btn-logout {
@@ -1142,7 +1142,7 @@ body {
   }
 
   .driver-user-name {
-    max-width: 85px;
+    max-width: 105px;
     font-size: 0.74rem;
   }
 

@@ -268,6 +268,14 @@ async function logoutUser() {
   selectedConnector = null;
   isPlugged = false;
 
+  const headerName = document.getElementById("headerDriverName");
+  if (headerName) {
+    headerName.innerText = "-";
+    headerName.removeAttribute("title");
+  }
+  const userBalText = document.getElementById("userBalanceText");
+  if (userBalText) userBalText.innerText = "0";
+
   // Clean DOM view states
   document.getElementById("activeChargingView").style.display = "none";
   document.getElementById("step2View").style.display = "none";
@@ -725,6 +733,22 @@ async function initDriverApp() {
   document.getElementById("authView").style.display = "none";
   document.getElementById("driverAppView").style.display = "flex";
 
+  // Pre-fill header immediately from storedUser
+  const headerName = document.getElementById("headerDriverName");
+  if (headerName && currentUser && currentUser.full_name) {
+    headerName.innerText = currentUser.full_name;
+    headerName.title = currentUser.full_name;
+  }
+  const headerRole = document.getElementById("headerRoleBadge");
+  if (headerRole && currentUser) {
+    headerRole.innerText = currentUser.role || "DRIVER";
+    headerRole.className = currentUser.role === "OPERATOR" ? "status-pill busy" : "status-pill online";
+  }
+  const userBalText = document.getElementById("userBalanceText");
+  if (userBalText && currentUser && currentUser.wallet_balance !== undefined) {
+    userBalText.innerText = currentUser.wallet_balance.toLocaleString("id-ID");
+  }
+
   await loadUserData();
   await loadStationData();
   setupWebSocket();
@@ -835,12 +859,25 @@ async function loadUserData() {
     userVehicles = await vehiclesRes.json();
     userCards = await cardsRes.json();
 
-    document.getElementById("userBalanceText").innerText = currentUser.wallet_balance.toLocaleString("id-ID");
-    document.getElementById("walletBalDesc").innerText = currentUser.wallet_balance.toLocaleString("id-ID");
-    document.getElementById("driverName").innerText = currentUser.full_name;
+    const userBalEl = document.getElementById("userBalanceText");
+    if (userBalEl && currentUser.wallet_balance !== undefined) {
+      userBalEl.innerText = currentUser.wallet_balance.toLocaleString("id-ID");
+    }
+    const walletBalEl = document.getElementById("walletBalDesc");
+    if (walletBalEl && currentUser.wallet_balance !== undefined) {
+      walletBalEl.innerText = currentUser.wallet_balance.toLocaleString("id-ID");
+    }
+
+    const driverNameEl = document.getElementById("driverName");
+    if (driverNameEl && currentUser.full_name) {
+      driverNameEl.innerText = currentUser.full_name;
+    }
 
     const headerName = document.getElementById("headerDriverName");
-    if (headerName) headerName.innerText = currentUser.full_name;
+    if (headerName && currentUser.full_name) {
+      headerName.innerText = currentUser.full_name;
+      headerName.title = currentUser.full_name;
+    }
     const headerRole = document.getElementById("headerRoleBadge");
     if (headerRole) {
       headerRole.innerText = currentUser.role || "DRIVER";
