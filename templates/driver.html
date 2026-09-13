@@ -305,6 +305,25 @@
 
           <!-- DIRECT NOZZLE PICKERS (AUTO-DETECT EV) -->
           <div style="border-top: 1px dashed #1E293B; padding-top: 14px; text-align: left;">
+            <!-- ACTIVE CLAIM RESUME BANNER (MULTI-DEVICE / RECONNECT) -->
+            <div id="activeClaimBanner" style="display: none; background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: left;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 0.82rem; font-weight: 800; color: #00F0FF;">⚡ Nozzle Sedang Anda Pilih</span>
+                <span class="status-pill success" style="font-size: 0.65rem; padding: 2px 8px;">TERKUNCI</span>
+              </div>
+              <div id="activeClaimBannerText" style="font-size: 0.75rem; color: #CBD5E1; margin-bottom: 10px; line-height: 1.4;">
+                Akun Anda sedang memilih nozzle di stasiun ini.
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="resumeActiveClaim()" style="flex: 1; padding: 7px 12px; font-size: 0.78rem; font-weight: 700;">
+                  ➜ Lanjutkan ke Target Cas
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="cancelActiveClaim()" style="padding: 7px 12px; font-size: 0.78rem; font-weight: 700; background: rgba(239, 68, 68, 0.2); border-color: rgba(239,68,68,0.4); color: #FCA5A5;">
+                  ✕ Batalkan
+                </button>
+              </div>
+            </div>
+
             <div style="font-size: 0.74rem; color: #94A3B8; font-weight: 700; margin-bottom: 8px; text-align: center;">
               ⚡ Atau Simulasi Colok Langsung (Auto-Detect EV):
             </div>

@@ -50,22 +50,38 @@ async def plug_nozzle(connector_id: int, req: Optional[PlugNozzleRequest] = None
             detail=f"❌ {connector.name} sedang digunakan oleh {other_name}. Silakan pilih nozzle lain!"
         )
 
-    # 3. Kunci nozzle langsung ke user ini saat colok / inisialisasi dimulai
+    # 3. Cek apakah user sudah memiliki sesi pengisian aktif
     if uid:
+        active_sess = db.query(models.ChargingSession).filter(
+            models.ChargingSession.user_id == uid,
+            models.ChargingSession.status == "CHARGING"
+        ).first()
+        if active_sess:
+            raise HTTPException(
+                status_code=409,
+                detail="❌ Anda sedang memiliki sesi pengisian aktif di stasiun ini! Selesaikan sesi tersebut terlebih dahulu."
+            )
+
+        # 4. Cek apakah user sudah memilih / mengunci nozzle LAIN yang berbeda
         prev_claimed = db.query(models.Connector).filter(
             models.Connector.locked_by_user_id == uid,
             models.Connector.id != connector_id
-        ).all()
-        for pc in prev_claimed:
-            pc.locked_by_user_id = None
-            if pc.status == "CONNECTED":
-                pc.status = "AVAILABLE"
-            await ChargingEngine.broadcast({
-                "event": "NOZZLE_RELEASED",
-                "station_id": pc.station_id,
-                "connector_id": pc.id,
-                "connector_name": pc.name
-            })
+        ).first()
+        if prev_claimed:
+            raise HTTPException(
+                status_code=409,
+                detail=f"❌ Akun Anda sedang memilih / menggunakan {prev_claimed.name}! Batalkan atau selesaikan nozzle tersebut terlebih dahulu sebelum memilih nozzle lain."
+            )
+
+        # 5. Jika nozzle ini SUDAH terkunci ke user ini dan sudah CONNECTED, kembalikan statusnya langsung
+        if connector.locked_by_user_id == uid and connector.status == "CONNECTED":
+            return {
+                "status": "CONNECTED",
+                "message": f"Kabel {connector.name} sudah terhubung ke kendaraan Anda!",
+                "connector_id": connector.id,
+                "connector_name": connector.name,
+                "locked_by_user_id": connector.locked_by_user_id
+            }
 
         connector.locked_by_user_id = uid
         connector.status = "CONNECTED"
@@ -135,19 +151,27 @@ async def claim_nozzle(connector_id: int, req: schemas.ClaimRequest, db: Session
             detail=f"❌ Nozzle ini sedang digunakan oleh {other_name}. Silakan pilih nozzle lain!"
         )
 
-    # Lepaskan klaim nozzle lain yang mungkin pernah diklaim user ini sebelumnya
+    # Cek apakah user sudah punya sesi pengisian aktif
+    active_sess = db.query(models.ChargingSession).filter(
+        models.ChargingSession.user_id == req.user_id,
+        models.ChargingSession.status == "CHARGING"
+    ).first()
+    if active_sess:
+        raise HTTPException(
+            status_code=409,
+            detail="❌ Anda sedang memiliki sesi pengisian aktif di stasiun ini! Selesaikan sesi tersebut terlebih dahulu."
+        )
+
+    # Cek apakah user sudah mengklaim nozzle LAIN
     prev_claimed = db.query(models.Connector).filter(
         models.Connector.locked_by_user_id == req.user_id,
         models.Connector.id != connector_id
-    ).all()
-    for pc in prev_claimed:
-        pc.locked_by_user_id = None
-        await ChargingEngine.broadcast({
-            "event": "NOZZLE_RELEASED",
-            "station_id": pc.station_id,
-            "connector_id": pc.id,
-            "connector_name": pc.name
-        })
+    ).first()
+    if prev_claimed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"❌ Akun Anda sudah mengklaim {prev_claimed.name}! Batalkan pilihan {prev_claimed.name} terlebih dahulu sebelum memilih nozzle lain."
+        )
 
     # Klaim nozzle
     connector.locked_by_user_id = req.user_id
@@ -177,6 +201,9 @@ async def release_nozzle(connector_id: int, req: schemas.ClaimRequest, db: Sessi
     connector = db.query(models.Connector).filter(models.Connector.id == connector_id).first()
     if not connector:
         raise HTTPException(status_code=404, detail="Nozzle tidak ditemukan.")
+
+    if connector.status == "CHARGING":
+        raise HTTPException(status_code=400, detail="Tidak dapat melepas nozzle yang sedang aktif mengisi daya!")
 
     if connector.locked_by_user_id == req.user_id:
         connector.locked_by_user_id = None

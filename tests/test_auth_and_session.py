@@ -346,8 +346,9 @@ class TestAuthAndSessionIsolation(unittest.TestCase):
         self.assertEqual(res2["status"], "SUCCESS")
         self.assertEqual(self.c1.locked_by_user_id, self.user2.id)
 
-    def test_user_claiming_second_nozzle_auto_releases_first(self):
+    def test_user_claiming_second_nozzle_fails_when_first_active(self):
         import asyncio
+        from fastapi import HTTPException
         self.c1.status = "CONNECTED"
         self.c2.status = "CONNECTED"
         self.db.commit()
@@ -360,15 +361,29 @@ class TestAuthAndSessionIsolation(unittest.TestCase):
         ))
         self.assertEqual(self.c1.locked_by_user_id, self.user1.id)
 
-        # User 1 claims c2 -> c1 should be auto-released!
-        asyncio.run(api_station.claim_nozzle(
+        # User 1 claims c2 while c1 is active -> 409 CONFLICT!
+        with self.assertRaises(HTTPException) as cm:
+            asyncio.run(api_station.claim_nozzle(
+                self.c2.id,
+                schemas.ClaimRequest(user_id=self.user1.id),
+                self.db
+            ))
+        self.assertEqual(cm.exception.status_code, 409)
+
+        # User 1 releases c1
+        asyncio.run(api_station.release_nozzle(
+            self.c1.id,
+            schemas.ClaimRequest(user_id=self.user1.id),
+            self.db
+        ))
+
+        # Now User 1 can claim c2
+        res2 = asyncio.run(api_station.claim_nozzle(
             self.c2.id,
             schemas.ClaimRequest(user_id=self.user1.id),
             self.db
         ))
-        self.db.refresh(self.c1)
-        self.db.refresh(self.c2)
-        self.assertIsNone(self.c1.locked_by_user_id)
+        self.assertEqual(res2["status"], "SUCCESS")
         self.assertEqual(self.c2.locked_by_user_id, self.user1.id)
 
     def test_unplug_resets_lock(self):
@@ -420,6 +435,40 @@ class TestAuthAndSessionIsolation(unittest.TestCase):
             ))
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertIn("sedang dalam proses pengisian aktif", ctx.exception.detail)
+
+    def test_same_user_cannot_plug_second_nozzle_while_first_locked(self):
+        import asyncio
+        self.c1.status = "AVAILABLE"
+        self.c1.locked_by_user_id = None
+        self.c2.status = "AVAILABLE"
+        self.c2.locked_by_user_id = None
+        self.db.commit()
+
+        # User 1 plugs c1 -> SUCCESS
+        res1 = asyncio.run(api_station.plug_nozzle(
+            self.c1.id,
+            api_station.PlugNozzleRequest(user_id=self.user1.id),
+            db=self.db
+        ))
+        self.assertEqual(res1["status"], "HANDSHAKING")
+
+        # User 1 tries to plug c2 from another device while c1 is active/locked -> 409 CONFLICT!
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(api_station.plug_nozzle(
+                self.c2.id,
+                api_station.PlugNozzleRequest(user_id=self.user1.id),
+                db=self.db
+            ))
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertIn("sedang memilih / menggunakan", ctx.exception.detail)
+
+        # Re-requesting the SAME nozzle c1 by User 1 returns CONNECTED without error
+        res_same = asyncio.run(api_station.plug_nozzle(
+            self.c1.id,
+            api_station.PlugNozzleRequest(user_id=self.user1.id),
+            db=self.db
+        ))
+        self.assertEqual(res_same["status"], "CONNECTED")
 
 if __name__ == "__main__":
     unittest.main()

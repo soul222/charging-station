@@ -515,6 +515,24 @@ async function triggerSimulatedPlug(nozzleNumber) {
     return;
   }
 
+  // Cek apakah akun ini sudah mengunci nozzle LAIN
+  const myLocked = stationConnectors.find(c => c.locked_by_user_id === USER_ID && c.id !== target.id);
+  if (myLocked) {
+    await showAppAlert(`Akun Anda saat ini sedang memilih ${myLocked.name}!\n\nBatalkan pilihan ${myLocked.name} terlebih dahulu jika ingin memilih nozzle lain.`, {
+      title: "Nozzle Lain Sedang Dipilih",
+      type: "warning"
+    });
+    return;
+  }
+
+  // Jika nozzle ini SUDAH terkunci ke akun ini dan sudah CONNECTED, langsung lanjutkan ke Step 2
+  if (target.locked_by_user_id === USER_ID && target.status === "CONNECTED") {
+    selectedConnector = target;
+    isPlugged = true;
+    goToStep(2);
+    return;
+  }
+
   selectedConnector = target;
   openHandshakeModal(target);
 
@@ -603,6 +621,16 @@ async function handleScannedNozzle(nozzleNumber) {
 // Nozzle Claim & Exclusivity Helpers
 async function claimNozzle(connectorId, isFromQr = false) {
   if (!connectorId || !USER_ID) return false;
+
+  const myLocked = stationConnectors.find(c => c.locked_by_user_id === USER_ID && c.id !== connectorId);
+  if (myLocked) {
+    await showAppAlert(`Akun Anda saat ini sudah mengklaim ${myLocked.name}!\n\nBatalkan pilihan ${myLocked.name} terlebih dahulu jika ingin mengklaim nozzle lain.`, {
+      title: "Nozzle Lain Sedang Diklaim",
+      type: "warning"
+    });
+    return false;
+  }
+
   try {
     const res = await fetch(`/api/station/connector/${connectorId}/claim`, {
       method: "POST",
@@ -650,6 +678,31 @@ async function releaseNozzleClaim(connectorId) {
   }
 }
 
+function resumeActiveClaim() {
+  const myLocked = stationConnectors.find(c => c.locked_by_user_id === USER_ID);
+  if (myLocked) {
+    selectedConnector = myLocked;
+    isPlugged = true;
+    goToStep(2);
+  }
+}
+
+async function cancelActiveClaim() {
+  const myLocked = stationConnectors.find(c => c.locked_by_user_id === USER_ID);
+  if (myLocked) {
+    const ok = await showAppConfirm(`Batalkan pilihan ${myLocked.name} agar akun Anda dapat memilih nozzle lain?`, {
+      title: "Batalkan Pilihan Nozzle",
+      confirmText: "Ya, Batalkan",
+      cancelText: "Kembali",
+      type: "warning"
+    });
+    if (ok) {
+      await releaseNozzleClaim(myLocked.id);
+      await loadStationData();
+    }
+  }
+}
+
 // Initial Load
 async function initDriverApp() {
   const storedUser = localStorage.getItem("voltx_user");
@@ -692,6 +745,16 @@ async function initDriverApp() {
       await handleScannedNozzle(parseInt(nozzleNum));
       return;
     }
+
+    // Cek apakah akun ini sudah mengunci salah satu nozzle (misal dari device lain atau sebelum refresh)
+    const myClaimed = stationConnectors.find(c => c.locked_by_user_id === USER_ID && c.status === "CONNECTED");
+    if (myClaimed) {
+      selectedConnector = myClaimed;
+      isPlugged = true;
+      goToStep(2);
+      return;
+    }
+
     goToStep(1);
   }
 }
@@ -905,6 +968,21 @@ async function loadStationData() {
 function updateNozzlePickersUI() {
   if (!stationConnectors || stationConnectors.length === 0) return;
 
+  const myLockedConnector = stationConnectors.find(c => c.locked_by_user_id === USER_ID);
+  const banner = document.getElementById("activeClaimBanner");
+  const bannerText = document.getElementById("activeClaimBannerText");
+
+  if (banner) {
+    if (myLockedConnector && myLockedConnector.status !== "CHARGING" && currentStep === 1) {
+      banner.style.display = "block";
+      if (bannerText) {
+        bannerText.innerHTML = `Akun Anda saat ini sedang memilih <b>${myLockedConnector.name}</b>. Selesaikan konfigurasi atau batalkan jika ingin berpindah ke nozzle lain.`;
+      }
+    } else {
+      banner.style.display = "none";
+    }
+  }
+
   stationConnectors.forEach(c => {
     const btn = document.getElementById(`btnDemoNozzle${c.connector_number}`);
     const badge = document.getElementById(`badgeNozzleStatus${c.connector_number}`);
@@ -913,6 +991,7 @@ function updateNozzlePickersUI() {
 
     const isCharging = c.status === "CHARGING";
     const isLockedByOther = !!(c.locked_by_user_id && c.locked_by_user_id !== USER_ID);
+    const isLockedByMe = (c.locked_by_user_id === USER_ID);
 
     if (isCharging) {
       btn.disabled = true;
@@ -945,6 +1024,40 @@ function updateNozzlePickersUI() {
         modalBtn.style.borderColor = "rgba(245, 158, 11, 0.5)";
         modalBtn.style.cursor = "not-allowed";
         modalBtn.title = "Nozzle sedang diklaim oleh pengguna lain";
+      }
+    } else if (myLockedConnector && !isLockedByMe) {
+      // Akun ini SUDAH memilih nozzle lain, kunci nozzle ini agar tidak bisa dipilih!
+      btn.disabled = true;
+      btn.style.opacity = "0.4";
+      btn.style.cursor = "not-allowed";
+      btn.style.borderColor = "rgba(148, 163, 184, 0.2)";
+      btn.style.background = "rgba(15, 23, 42, 0.4)";
+      if (badge) {
+        badge.innerHTML = `<span class="status-pill" style="font-size:0.65rem; padding: 2px 7px; background: rgba(148, 163, 184, 0.15); color: #94A3B8;">🔒 ANDA MEMILIH ${myLockedConnector.name.split(':')[0]}</span>`;
+      }
+      if (modalBtn) {
+        modalBtn.disabled = true;
+        modalBtn.style.opacity = "0.4";
+        modalBtn.style.borderColor = "rgba(148, 163, 184, 0.3)";
+        modalBtn.style.cursor = "not-allowed";
+        modalBtn.title = `Akun Anda sedang aktif di ${myLockedConnector.name}`;
+      }
+    } else if (isLockedByMe) {
+      // Nozzle ini adalah nozzle yang sedang dipilih oleh akun ini
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+      btn.style.borderColor = "rgba(0, 240, 255, 0.6)";
+      btn.style.background = "rgba(0, 240, 255, 0.08)";
+      if (badge) {
+        badge.innerHTML = `<span class="status-pill success" style="font-size:0.65rem; padding: 2px 7px; background: rgba(0, 240, 255, 0.15); color: #00F0FF; border: 1px solid rgba(0,240,255,0.4);">👉 SEDANG ANDA PILIH</span>`;
+      }
+      if (modalBtn) {
+        modalBtn.disabled = false;
+        modalBtn.style.opacity = "1";
+        modalBtn.style.borderColor = "#00F0FF";
+        modalBtn.style.cursor = "pointer";
+        modalBtn.title = "Lanjutkan konfigurasi nozzle ini";
       }
     } else {
       btn.disabled = false;
