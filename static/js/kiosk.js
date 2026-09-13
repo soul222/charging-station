@@ -239,11 +239,6 @@ function renderConnectors(connectors) {
           Tarif: Rp ${c.tariff_per_kwh.toLocaleString("id-ID")} / kWh
         </div>
         ${qrSection}
-        ${(!isCharging && !isClaimed) ? `
-          <button type="button" class="btn btn-secondary btn-block" onclick="triggerKioskSimulatePlug(${c.id})" style="margin-top:10px; font-size:0.75rem; padding:7px 10px; border-color: rgba(56,189,248,0.4); color: #38BDF8; border-radius: 8px;">
-            🔌 Simulasi Colok Mobil
-          </button>
-        ` : ''}
       </div>
     `;
     container.innerHTML += html;
