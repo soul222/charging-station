@@ -270,7 +270,7 @@
               <span class="status-pill online" style="font-size: 0.62rem; padding: 2px 6px;">SIMULASI READY</span>
             </div>
             <p style="font-size: 0.74rem; color: #94A3B8; line-height: 1.4; margin-bottom: 10px;">
-              Kabel fisik tidak tersedia di server remote. Tekan tombol di bawah untuk mensimulasikan kabel telah dicolokkan ke HP Anda:
+              Kabel fisik tidak tersedia di server remote. Tekan tombol di bawah untuk mensimulasikan nozzle telah dicolokkan ke port charging mobil Anda:
             </p>
             <button type="button" id="btnSimulatePlug" onclick="simulatePlugCable()" class="btn btn-primary btn-block" style="padding: 13px 14px; font-size: 0.92rem; font-weight: 800; border-radius: 10px; background: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%); box-shadow: 0 4px 20px rgba(0, 198, 255, 0.45); display: flex; align-items: center; justify-content: center; gap: 8px; border: none; color: #fff; cursor: pointer;">
               <span>⚡</span> Sudah Tercolok (Lanjut ke Target Cas) ➜
@@ -393,7 +393,7 @@
               <span id="maxManualKwhHint" style="font-size: 0.74rem; color: var(--cyan-neon); font-weight: 700;">Max: 50.0 kWh</span>
             </div>
             <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-              <input type="number" id="inputManualKwh" value="15" min="1" max="100" step="1" oninput="onManualKwhChanged()" style="flex:1; background:var(--bg-input); border:1px solid var(--border-color); color:#fff; padding:10px 14px; border-radius:10px; font-size:1.1rem; font-weight:800;">
+              <input type="number" id="inputManualKwh" value="20" min="1" max="100" step="1" placeholder="Contoh: 20" oninput="onManualKwhChanged()" onblur="onManualKwhBlur()" style="flex:1; background:var(--bg-input); border:1px solid var(--border-color); color:#fff; padding:10px 14px; border-radius:10px; font-size:1.1rem; font-weight:800;">
               <span style="align-self: center; font-weight: 800; color: var(--cyan-neon); font-size: 1rem;">kWh</span>
             </div>
             <div style="display: flex; gap: 6px;">

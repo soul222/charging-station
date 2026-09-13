@@ -462,7 +462,7 @@ function showPendingNozzleUI(target) {
     pendingName.innerText = `${target.name} (${target.connector_type} • Max ${Math.round(target.max_power_kw * 1000).toLocaleString('id-ID')} W)`;
   }
   if (pendingDesc) {
-    pendingDesc.innerHTML = `🔌 Silakan ambil nozzle <b>${target.name}</b> dari totem SPKLU dan hubungkan kabel ke HP Anda.`;
+    pendingDesc.innerHTML = `🔌 Silakan ambil nozzle <b>${target.name}</b> dari totem SPKLU dan colokkan ke port charging mobil Anda.`;
   }
   if (pendingCard) {
     pendingCard.style.display = "block";
@@ -926,8 +926,8 @@ function updateCarDisplay() {
   const hintElem = document.getElementById("maxManualKwhHint");
   if (inputElem) {
     inputElem.max = Math.ceil(remainingKwh);
-    const curVal = parseFloat(inputElem.value) || 0;
-    if (curVal > remainingKwh || curVal <= 0) {
+    // Only set default if field is completely empty and user is not actively typing in it
+    if (document.activeElement !== inputElem && !inputElem.value) {
       inputElem.value = Math.min(20, Math.ceil(remainingKwh));
     }
   }
@@ -943,24 +943,93 @@ function updateCarDisplay() {
     } else if (targetMode === 'FULL_100') {
       targetDesc.innerText = `🎯 Cas hingga 100% penuh (+${remainingKwh} kWh). Cocok untuk persiapan perjalanan jarak jauh.`;
     } else {
-      const val = parseFloat(inputElem?.value) || 15;
-      const targetSoc = Math.min(100, Math.round(soc + (val / cap * 100)));
-      targetDesc.innerText = `🎯 Target manual: +${val} kWh (Baterai akan terisi menjadi ~${targetSoc}%)`;
+      const raw = inputElem ? inputElem.value.trim() : "";
+      if (raw === "") {
+        targetDesc.innerText = "🎯 Masukkan jumlah energi yang diinginkan (kWh)...";
+      } else {
+        const val = parseFloat(raw) || 0;
+        const targetSoc = Math.min(100, Math.round(soc + (val / cap * 100)));
+        targetDesc.innerText = `🎯 Target manual: +${val} kWh (Baterai akan terisi menjadi ~${targetSoc}%)`;
+      }
     }
   }
 
   if (currentStep === 2) updateEstimate();
 }
 
+function resetEstimateDisplay() {
+  const estEnergy = document.getElementById("estEnergy");
+  if (estEnergy) estEnergy.innerText = "0 kWh";
+  const estKm = document.getElementById("estKm");
+  if (estKm) estKm.innerText = "+0 KM";
+  const estDuration = document.getElementById("estDuration");
+  if (estDuration) estDuration.innerText = "0 Menit";
+  const estDeposit = document.getElementById("estTotalDeposit");
+  if (estDeposit) estDeposit.innerText = "Rp 0";
+  const qrisText = document.getElementById("qrisAmountText");
+  if (qrisText) qrisText.innerText = "Rp 0";
+}
+
 function onManualKwhChanged() {
-  updateCarDisplay();
+  const inputElem = document.getElementById("inputManualKwh");
+  if (!inputElem) return;
+  const raw = inputElem.value.trim();
+  const targetDesc = document.getElementById("targetModeSummary");
+  const cap = selectedVehicle?.battery_capacity_kwh || 72.6;
+  const soc = selectedVehicle?.current_soc || 28.0;
+  const remainingKwh = Math.max(0, cap - ((soc / 100) * cap));
+
+  if (raw === "") {
+    if (targetDesc) {
+      targetDesc.innerText = "🎯 Masukkan jumlah energi kWh yang diinginkan...";
+    }
+    resetEstimateDisplay();
+    return;
+  }
+
+  let val = parseFloat(raw);
+  if (isNaN(val) || val <= 0) {
+    if (targetDesc) {
+      targetDesc.innerText = "🎯 Masukkan angka kWh di atas 0";
+    }
+    resetEstimateDisplay();
+    return;
+  }
+
+  if (val > remainingKwh) {
+    val = parseFloat(remainingKwh.toFixed(1));
+    inputElem.value = val;
+  }
+
+  const targetSoc = Math.min(100, Math.round(soc + (val / cap * 100)));
+  if (targetDesc) {
+    targetDesc.innerText = `🎯 Target manual: +${val} kWh (Baterai akan terisi menjadi ~${targetSoc}%)`;
+  }
+
+  updateEstimate();
+}
+
+function onManualKwhBlur() {
+  const inputElem = document.getElementById("inputManualKwh");
+  if (!inputElem) return;
+  const raw = inputElem.value.trim();
+  if (raw === "" || parseFloat(raw) <= 0) {
+    const cap = selectedVehicle?.battery_capacity_kwh || 72.6;
+    const soc = selectedVehicle?.current_soc || 28.0;
+    const remainingKwh = Math.max(0, cap - ((soc / 100) * cap));
+    inputElem.value = Math.min(20, Math.ceil(remainingKwh));
+    onManualKwhChanged();
+  }
 }
 
 function quickSetKwh(amount) {
   const inputElem = document.getElementById("inputManualKwh");
   if (inputElem) {
-    inputElem.value = amount;
-    updateCarDisplay();
+    const cap = selectedVehicle?.battery_capacity_kwh || 72.6;
+    const soc = selectedVehicle?.current_soc || 28.0;
+    const remainingKwh = Math.max(0, cap - ((soc / 100) * cap));
+    inputElem.value = Math.min(amount, Math.ceil(remainingKwh));
+    onManualKwhChanged();
   }
 }
 
@@ -1278,6 +1347,16 @@ function selectTargetMode(mode) {
   const box = document.getElementById("manualKwhBox");
   if (box) box.style.display = targetMode === 'MANUAL_KWH' ? 'block' : 'none';
 
+  if (targetMode === 'MANUAL_KWH') {
+    const inputElem = document.getElementById("inputManualKwh");
+    if (inputElem && (!inputElem.value || parseFloat(inputElem.value) <= 0)) {
+      const cap = selectedVehicle?.battery_capacity_kwh || 72.6;
+      const soc = selectedVehicle?.current_soc || 28.0;
+      const remainingKwh = Math.max(0, cap - ((soc / 100) * cap));
+      inputElem.value = Math.min(20, Math.ceil(remainingKwh));
+    }
+  }
+
   updateCarDisplay();
   updateEstimate();
 }
@@ -1292,7 +1371,7 @@ async function updateEstimate() {
 
   let targetSoc = 100.0;
   let targetType = "FULL";
-  let manualKwh = 15.0;
+  let manualKwh = 20.0;
 
   if (targetMode === "FULL_80") {
     targetSoc = soc >= 80.0 ? 100.0 : 80.0;
@@ -1303,7 +1382,12 @@ async function updateEstimate() {
   } else {
     targetType = "MANUAL_KWH";
     const inputElem = document.getElementById("inputManualKwh");
-    manualKwh = parseFloat(inputElem?.value) || 15.0;
+    const rawVal = inputElem?.value?.trim();
+    if (!rawVal || isNaN(parseFloat(rawVal)) || parseFloat(rawVal) <= 0) {
+      resetEstimateDisplay();
+      return;
+    }
+    manualKwh = parseFloat(rawVal);
   }
 
   try {
@@ -1499,7 +1583,15 @@ async function executeStartCharging(cardUid) {
   } else {
     targetType = "MANUAL_KWH";
     const input = document.getElementById("inputManualKwh");
-    manualKwh = parseFloat(input?.value) || 15.0;
+    const raw = input ? input.value.trim() : "";
+    manualKwh = parseFloat(raw) || 0;
+    if (manualKwh <= 0) {
+      await showAppAlert("Silakan masukkan jumlah energi kWh pengisian yang valid terlebih dahulu.", {
+        title: "Input kWh Belum Valid",
+        type: "warning"
+      });
+      return;
+    }
   }
 
   const payload = {

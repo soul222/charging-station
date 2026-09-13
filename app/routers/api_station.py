@@ -187,7 +187,7 @@ async def claim_nozzle(connector_id: int, req: schemas.ClaimRequest, db: Session
     if connector.status == "AVAILABLE":
         raise HTTPException(
             status_code=400,
-            detail="⚠️ Kabel belum dicolokkan ke HP! Silakan colokkan kabel terlebih dahulu."
+            detail="⚠️ Kabel belum dicolokkan ke mobil! Silakan colokkan nozzle ke port charging mobil terlebih dahulu."
         )
 
     # Cek apakah nozzle sudah diklaim pengguna lain
