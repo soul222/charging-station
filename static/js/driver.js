@@ -915,6 +915,7 @@ function updateNozzlePickersUI() {
     const isLockedByOther = !!(c.locked_by_user_id && c.locked_by_user_id !== USER_ID);
 
     if (isCharging) {
+      btn.disabled = true;
       btn.style.opacity = "0.45";
       btn.style.cursor = "not-allowed";
       btn.style.borderColor = "rgba(239, 68, 68, 0.4)";
@@ -930,6 +931,7 @@ function updateNozzlePickersUI() {
         modalBtn.title = "Nozzle sedang aktif mengisi kendaraan lain";
       }
     } else if (isLockedByOther) {
+      btn.disabled = true;
       btn.style.opacity = "0.55";
       btn.style.cursor = "not-allowed";
       btn.style.borderColor = "rgba(245, 158, 11, 0.4)";
@@ -945,6 +947,7 @@ function updateNozzlePickersUI() {
         modalBtn.title = "Nozzle sedang diklaim oleh pengguna lain";
       }
     } else {
+      btn.disabled = false;
       btn.style.opacity = "1";
       btn.style.cursor = "pointer";
       btn.style.borderColor = "";
@@ -1504,6 +1507,15 @@ function setupWebSocket() {
     const data = JSON.parse(event.data);
 
     if (data.event === "HANDSHAKE_STAGE") {
+      // Isolasi multi-user: Jika event handshake milik user lain, abaikan
+      if (data.user_id && data.user_id !== USER_ID) {
+        return;
+      }
+      const hsModal = document.getElementById("handshakeModal");
+      if (!hsModal || !hsModal.classList.contains("open")) {
+        return;
+      }
+
       const step = data.step || (typeof data.stage === "number" ? data.stage : 1);
       for (let i = 1; i <= 4; i++) {
         const stepEl = document.getElementById(`hsStep${i}`);
@@ -1529,6 +1541,17 @@ function setupWebSocket() {
         updateCarDisplay();
       }
     } else if (data.event === "HANDSHAKE_COMPLETE") {
+      // Isolasi multi-user: Jika event milik user lain, perbarui data stasiun dan abaikan
+      if (data.user_id && data.user_id !== USER_ID) {
+        loadStationData();
+        return;
+      }
+      const hsModal = document.getElementById("handshakeModal");
+      if (!hsModal || !hsModal.classList.contains("open")) {
+        loadStationData();
+        return;
+      }
+
       for (let i = 1; i <= 4; i++) {
         const stepEl = document.getElementById(`hsStep${i}`);
         if (stepEl) stepEl.className = "handshake-step-item done";
@@ -1559,6 +1582,12 @@ function setupWebSocket() {
         loadStationData();
       }, 700);
     } else if (data.event === "PORT_NOZZLE_CONNECTED") {
+      // Isolasi multi-user: Jika event milik user lain, hanya perbarui status stasiun
+      if (data.user_id && data.user_id !== USER_ID) {
+        loadStationData();
+        return;
+      }
+
       isPlugged = true;
       const hsModal = document.getElementById("handshakeModal");
       if (hsModal && hsModal.classList.contains("open")) {

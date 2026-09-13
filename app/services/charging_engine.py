@@ -224,7 +224,8 @@ class ChargingEngine:
                 "title": "Penguncian Pin Nozzle",
                 "message": f"🔒 Mengunci pin aktuator nozzle {connector.name} ke charging port kendaraan...",
                 "connector_id": connector_id,
-                "connector_name": connector.name
+                "connector_name": connector.name,
+                "user_id": user_id
             })
             await asyncio.sleep(1.2)
 
@@ -237,7 +238,8 @@ class ChargingEngine:
                 "title": "Komunikasi BMS ISO 15118",
                 "message": "🤝 Melakukan handshake CAN-bus & membaca data Battery Management System (BMS)...",
                 "connector_id": connector_id,
-                "connector_name": connector.name
+                "connector_name": connector.name,
+                "user_id": user_id
             })
             await asyncio.sleep(1.5)
 
@@ -265,7 +267,8 @@ class ChargingEngine:
                 "message": f"🚗 Terdeteksi: {detected_vehicle.brand} {detected_vehicle.model} ({detected_vehicle.license_plate}) • Baterai: {detected_vehicle.battery_capacity_kwh} kWh (SoC {detected_vehicle.current_soc}%)",
                 "connector_id": connector_id,
                 "connector_name": connector.name,
-                "vehicle": vehicle_data
+                "vehicle": vehicle_data,
+                "user_id": user_id
             })
             await asyncio.sleep(1.2)
 
@@ -280,7 +283,8 @@ class ChargingEngine:
                 "message": f"⚡ Uji resistansi isolasi tegangan tinggi ({voltage_str}) aman • Relay daya aktif!",
                 "connector_id": connector_id,
                 "connector_name": connector.name,
-                "voltage": detected_vehicle.architecture_voltage or 400.0
+                "voltage": detected_vehicle.architecture_voltage or 400.0,
+                "user_id": user_id
             })
             await asyncio.sleep(1.0)
 
@@ -297,6 +301,7 @@ class ChargingEngine:
                 "connector_name": connector.name,
                 "status": "CONNECTED",
                 "vehicle": vehicle_data,
+                "user_id": user_id,
                 "message": f"✅ {connector.name} terhubung ke {detected_vehicle.brand} {detected_vehicle.model}!"
             })
 
@@ -306,6 +311,7 @@ class ChargingEngine:
                 "connector_name": connector.name,
                 "status": "CONNECTED",
                 "vehicle": vehicle_data,
+                "user_id": user_id,
                 "message": f"✅ {connector.name} siap mengalirkan listrik! Silakan pilih target pengisian."
             })
 
@@ -315,7 +321,8 @@ class ChargingEngine:
                 "connector_id": connector.id,
                 "connector_name": connector.name,
                 "status": "CONNECTED",
-                "vehicle": vehicle_data
+                "vehicle": vehicle_data,
+                "user_id": user_id
             })
 
         finally:
