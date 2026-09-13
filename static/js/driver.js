@@ -559,7 +559,7 @@ async function triggerSimulatedPlug(nozzleNumber) {
     }
   } catch (err) {
     closeHandshakeModal();
-    await showAppAlert("Koneksi gagal saat handshake: " + err, { title: "Koneksi Error", type: "error" });
+    await showAppAlert("Gagal memulai verifikasi kendaraan: " + err, { title: "Koneksi Error", type: "error" });
     await loadStationData();
   }
 }
@@ -581,7 +581,7 @@ function openHandshakeModal(connector) {
   if (sub) sub.innerText = `Menghubungkan ${connector.name}...`;
 
   const msg = document.getElementById("handshakeFooterMsg");
-  if (msg) msg.innerText = "⏳ Motor aktuator sedang mengunci pin nozzle ke port mobil...";
+  if (msg) msg.innerText = "⏳ Mengunci konektor nozzle secara mekanikal ke port mobil...";
 
   modal.classList.add("open");
 
@@ -1778,7 +1778,7 @@ function setupWebSocket() {
         selectedVehicle = data.vehicle;
         const desc3 = document.getElementById("hsDesc3");
         if (desc3) {
-          desc3.innerHTML = `Terdeteksi: <b style="color:#00F0FF;">${data.vehicle.brand} ${data.vehicle.model}</b> (${data.vehicle.license_plate})`;
+          desc3.innerHTML = `Terverifikasi: <b style="color:#00F0FF;">${data.vehicle.brand} ${data.vehicle.model}</b> (${data.vehicle.license_plate})`;
         }
         updateCarDisplay();
       }
@@ -1800,7 +1800,7 @@ function setupWebSocket() {
       }
       const footerMsg = document.getElementById("handshakeFooterMsg");
       if (footerMsg) {
-        footerMsg.innerHTML = "✅ <b>Handshake Sukses!</b> Parameter kendaraan terverifikasi ISO 15118.";
+        footerMsg.innerHTML = "✅ <b>Verifikasi Berhasil!</b> Parameter keselamatan kendaraan terverifikasi aman (ISO 15118).";
       }
       if (data.vehicle) {
         selectedVehicle = data.vehicle;
@@ -1814,8 +1814,8 @@ function setupWebSocket() {
           const claimed = await claimNozzle(matched.id, true);
           if (claimed) {
             goToStep(2);
-            showAppAlert(`Kabel ${matched.name} berhasil terhubung!\nKendaraan: ${selectedVehicle ? (selectedVehicle.brand + ' ' + selectedVehicle.model) : 'EV'}\nMelanjutkan ke Target Cas...`, {
-              title: "Handshake Sukses!",
+            showAppAlert(`Konektor ${matched.name} berhasil terhubung!\nKendaraan: ${selectedVehicle ? (selectedVehicle.brand + ' ' + selectedVehicle.model) : 'EV'}\nMelanjutkan ke Target Cas...`, {
+              title: "Verifikasi Berhasil!",
               subtitle: `🚗 ${selectedVehicle ? selectedVehicle.model : 'Real EV'} • 🔌 ${matched.name}`,
               type: "success"
             });

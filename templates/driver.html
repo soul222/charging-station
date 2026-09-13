@@ -589,52 +589,52 @@
 
 </div> <!-- closes presentation-container -->
 
-  <!-- MODAL: HANDSHAKE PROTOKOL & AUTO-DETECT EV -->
+  <!-- MODAL: INISIALISASI & VERIFIKASI KENDARAAN (STANDAR SPKLU) -->
   <div class="modal-overlay" id="handshakeModal">
     <div class="modal-box" style="border: 2px solid var(--cyan-neon); box-shadow: 0 0 35px var(--cyan-glow); max-width: 440px; text-align: left; position: relative;">
       <button type="button" onclick="finishHandshakeManually()" title="Tutup / Lanjut" style="position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #94A3B8; font-size: 1.2rem; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;">&times;</button>
       <div style="text-align: center; margin-bottom: 16px;">
-        <div style="font-size: 2.2rem; margin-bottom: 4px;">🤝</div>
-        <h3 style="font-size: 1.15rem; color: #fff; font-weight: 800;">Protokol Handshake SPKLU</h3>
-        <p style="font-size: 0.76rem; color: #38BDF8;" id="handshakeSubtitle">Inisialisasi Standar ISO 15118 (Plug & Charge)</p>
+        <div style="font-size: 2.2rem; margin-bottom: 4px;">🛡️</div>
+        <h3 style="font-size: 1.15rem; color: #fff; font-weight: 800;">Inisialisasi & Verifikasi Kendaraan</h3>
+        <p style="font-size: 0.76rem; color: #38BDF8;" id="handshakeSubtitle">Standar Komunikasi EV ISO 15118 & Keselamatan IEC 61851</p>
       </div>
 
       <div style="margin-bottom: 16px;">
         <div class="handshake-step-item" id="hsStep1">
           <div class="handshake-step-icon" id="hsIcon1">🔒</div>
           <div style="flex: 1;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">1. Mechanical Locking</div>
-            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc1">Mengunci pin nozzle ke port mobil...</div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">1. Penguncian Konektor (Safety Interlock)</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc1">Mengunci konektor nozzle secara mekanikal ke port mobil...</div>
           </div>
         </div>
 
         <div class="handshake-step-item" id="hsStep2">
-          <div class="handshake-step-icon" id="hsIcon2">🤝</div>
+          <div class="handshake-step-icon" id="hsIcon2">📡</div>
           <div style="flex: 1;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">2. Komunikasi BMS & CAN-bus</div>
-            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc2">Sinkronisasi parameter baterai mobil...</div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">2. Sinkronisasi Data BMS (Battery Management)</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc2">Membaca parameter voltase, suhu, dan sel baterai...</div>
           </div>
         </div>
 
         <div class="handshake-step-item" id="hsStep3">
           <div class="handshake-step-icon" id="hsIcon3">🚗</div>
           <div style="flex: 1;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">3. Auto-Detect Identitas Mobil</div>
-            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc3">Membaca VIN, kapasitas baterai & SoC...</div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">3. Verifikasi Identitas & Tipe Kendaraan</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc3">Memvalidasi spesifikasi kompatibilitas daya kendaraan...</div>
           </div>
         </div>
 
         <div class="handshake-step-item" id="hsStep4">
           <div class="handshake-step-icon" id="hsIcon4">⚡</div>
           <div style="flex: 1;">
-            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">4. Uji Isolasi Keselamatan</div>
-            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc4">Uji keselamatan tegangan tinggi...</div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">4. Uji Isolasi & Keamanan Listrik</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc4">Pemeriksaan sirkuit tegangan tinggi sebelum pengisian...</div>
           </div>
         </div>
       </div>
 
       <div id="handshakeFooterMsg" style="background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: #38BDF8; text-align: center; font-weight: 600; margin-bottom: 10px;">
-        ⏳ Menghubungkan komunikasi kendaraan...
+        ⏳ Menginisialisasi sistem komunikasi keselamatan kendaraan...
       </div>
 
       <button type="button" onclick="finishHandshakeManually()" class="btn btn-secondary btn-block" style="padding: 8px 10px; font-size: 0.74rem; border-color: rgba(56, 189, 248, 0.35); color: #94A3B8;">

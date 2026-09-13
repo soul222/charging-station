@@ -152,7 +152,7 @@ async def plug_nozzle(connector_id: int, req: Optional[PlugNozzleRequest] = None
 
     return {
         "status": "HANDSHAKING",
-        "message": f"Memulai inisialisasi handshake protokol dengan {connector.name}...",
+        "message": f"Memulai inisialisasi & verifikasi keselamatan dengan {connector.name}...",
         "connector_id": connector.id,
         "connector_name": connector.name,
         "locked_by_user_id": connector.locked_by_user_id
