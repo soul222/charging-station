@@ -690,8 +690,17 @@ function goToStep(step) {
     updateEstimate();
   }
 
-  if (step === 3 && currentEstimate) {
-    document.getElementById("payDepositAmountText").innerText = `Rp ${currentEstimate.estimated_cost.toLocaleString('id-ID')}`;
+  if (step === 3) {
+    const updateDepositText = () => {
+      const cost = (currentEstimate && currentEstimate.estimated_cost > 0) ? currentEstimate.estimated_cost : 25000;
+      const payElem = document.getElementById("payDepositAmountText");
+      if (payElem) payElem.innerText = `Rp ${Math.round(cost).toLocaleString('id-ID')}`;
+    };
+    if (!currentEstimate || currentEstimate.estimated_cost <= 0) {
+      updateEstimate().then(updateDepositText);
+    } else {
+      updateDepositText();
+    }
     setPaymentMethod(paymentMethod);
   }
 }
@@ -720,8 +729,9 @@ async function loadUserData() {
       headerRole.className = currentUser.role === "OPERATOR" ? "status-pill busy" : "status-pill online";
     }
 
-    // Auto-select Real EV or user's active vehicle
-    selectedVehicle = userVehicles[0];
+    // Auto-select Real EV or user's active vehicle (ignore legacy Smartphone)
+    const evs = (userVehicles || []).filter(v => v.brand !== "Smartphone");
+    selectedVehicle = evs.length > 0 ? evs[0] : (userVehicles && userVehicles[0] ? userVehicles[0] : null);
     if (selectedVehicle) {
       updateCarDisplay();
     }
@@ -973,18 +983,27 @@ async function autoHandleUsbUnplugged() {
 // Target Mode & Estimate
 function selectTargetMode(mode) {
   targetMode = mode;
+  if (mode === 'FULL_80' && selectedVehicle && (selectedVehicle.current_soc || 0) >= 80.0) {
+    showAppAlert(`Baterai mobil Anda saat ini sudah ${(selectedVehicle.current_soc || 80).toFixed(1)}%. Mode cas otomatis dialihkan ke 100% (Penuh).`, {
+      title: "Baterai Sudah di Atas 80%",
+      type: "info"
+    });
+    targetMode = 'FULL_100';
+  }
+
   const tab80 = document.getElementById("tabFull80");
   const tab100 = document.getElementById("tabFull100");
   const tabMan = document.getElementById("tabManualKwh");
 
-  if (tab80) tab80.className = `tab-btn ${mode === 'FULL_80' ? 'active' : ''}`;
-  if (tab100) tab100.className = `tab-btn ${mode === 'FULL_100' ? 'active' : ''}`;
-  if (tabMan) tabMan.className = `tab-btn ${mode === 'MANUAL_KWH' ? 'active' : ''}`;
+  if (tab80) tab80.className = `tab-btn ${targetMode === 'FULL_80' ? 'active' : ''}`;
+  if (tab100) tab100.className = `tab-btn ${targetMode === 'FULL_100' ? 'active' : ''}`;
+  if (tabMan) tabMan.className = `tab-btn ${targetMode === 'MANUAL_KWH' ? 'active' : ''}`;
 
   const box = document.getElementById("manualKwhBox");
-  if (box) box.style.display = mode === 'MANUAL_KWH' ? 'block' : 'none';
+  if (box) box.style.display = targetMode === 'MANUAL_KWH' ? 'block' : 'none';
 
   updateCarDisplay();
+  updateEstimate();
 }
 
 async function updateEstimate() {
@@ -1000,7 +1019,7 @@ async function updateEstimate() {
   let manualKwh = 15.0;
 
   if (targetMode === "FULL_80") {
-    targetSoc = 80.0;
+    targetSoc = soc >= 80.0 ? 100.0 : 80.0;
     targetType = "FULL";
   } else if (targetMode === "FULL_100") {
     targetSoc = 100.0;
@@ -1093,13 +1112,16 @@ function renderQrisCode(amount) {
 // -------------------------------------------------------------
 let emoneyTapTimeout = null;
 
-function openEmoneyTapModal() {
+async function openEmoneyTapModal() {
   if (!currentEstimate || currentEstimate.estimated_cost <= 0) {
-    showAppAlert("Baterai HP sudah penuh sesuai target pengisian!", {
-      title: "Baterai Penuh",
-      type: "info"
-    });
-    return;
+    await updateEstimate();
+  }
+  if (!currentEstimate || currentEstimate.estimated_cost <= 0) {
+    currentEstimate = {
+      estimated_cost: 25000,
+      energy_needed_kwh: 10.0,
+      tariff_per_kwh: (selectedConnector && selectedConnector.tariff_per_kwh) || 2466
+    };
   }
 
   if (emoneyTapTimeout) {
@@ -1169,15 +1191,18 @@ async function triggerEmoneyCardTap() {
 // START CHARGING
 async function startChargingProcess() {
   if (!currentEstimate || currentEstimate.estimated_cost <= 0) {
-    await showAppAlert("Baterai HP sudah penuh sesuai target pengisian!", {
-      title: "Baterai Penuh",
-      type: "info"
-    });
-    return;
+    await updateEstimate();
+  }
+  if (!currentEstimate || currentEstimate.estimated_cost <= 0) {
+    currentEstimate = {
+      estimated_cost: 25000,
+      energy_needed_kwh: 10.0,
+      tariff_per_kwh: (selectedConnector && selectedConnector.tariff_per_kwh) || 2466
+    };
   }
 
   if (paymentMethod === "EMONEY") {
-    openEmoneyTapModal();
+    await openEmoneyTapModal();
     return;
   }
 

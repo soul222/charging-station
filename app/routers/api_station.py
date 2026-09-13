@@ -223,7 +223,7 @@ async def start_charging(req: schemas.StartChargingRequest, db: Session = Depend
 
     deposit_needed = estimate.estimated_cost
     if deposit_needed <= 0:
-        raise HTTPException(status_code=400, detail="Baterai HP sudah penuh sesuai target!")
+        deposit_needed = 15000.0
 
     # 1. Process payment / Lock deposit (raises HTTPException if insufficient balance for E-Money or Wallet)
     BillingService.process_payment(
