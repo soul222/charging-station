@@ -215,28 +215,28 @@ class ChargingEngine:
             if not connector:
                 return
 
-            # Stage 1: Mechanical Locking
+            # Stage 1: Mechanical Locking (Safety Interlock)
             await cls.broadcast({
                 "event": "HANDSHAKE_STAGE",
                 "stage": "LOCKING",
                 "step": 1,
                 "total_steps": 4,
-                "title": "Penguncian Pin Nozzle",
-                "message": f"🔒 Mengunci pin aktuator nozzle {connector.name} ke charging port kendaraan...",
+                "title": "Penguncian Konektor (Safety Interlock)",
+                "message": f"🔒 Mengunci konektor {connector.name} secara mekanikal ke port kendaraan...",
                 "connector_id": connector_id,
                 "connector_name": connector.name,
                 "user_id": user_id
             })
             await asyncio.sleep(1.2)
 
-            # Stage 2: BMS CAN-Bus Handshake
+            # Stage 2: BMS CAN-Bus Data Synchronization
             await cls.broadcast({
                 "event": "HANDSHAKE_STAGE",
                 "stage": "BMS_SYNC",
                 "step": 2,
                 "total_steps": 4,
-                "title": "Komunikasi BMS ISO 15118",
-                "message": "🤝 Melakukan handshake CAN-bus & membaca data Battery Management System (BMS)...",
+                "title": "Sinkronisasi BMS (Battery Management)",
+                "message": "📡 Sinkronisasi data voltase, suhu, dan parameter baterai (ISO 15118)...",
                 "connector_id": connector_id,
                 "connector_name": connector.name,
                 "user_id": user_id
@@ -263,8 +263,8 @@ class ChargingEngine:
                 "stage": "VEHICLE_IDENTIFIED",
                 "step": 3,
                 "total_steps": 4,
-                "title": "Kendaraan Terdeteksi",
-                "message": f"🚗 Terdeteksi: {detected_vehicle.brand} {detected_vehicle.model} ({detected_vehicle.license_plate}) • Baterai: {detected_vehicle.battery_capacity_kwh} kWh (SoC {detected_vehicle.current_soc}%)",
+                "title": "Verifikasi Identitas & Tipe Kendaraan",
+                "message": f"🚗 Terverifikasi: {detected_vehicle.brand} {detected_vehicle.model} ({detected_vehicle.license_plate}) • Baterai: {detected_vehicle.battery_capacity_kwh} kWh (SoC {detected_vehicle.current_soc}%)",
                 "connector_id": connector_id,
                 "connector_name": connector.name,
                 "vehicle": vehicle_data,
@@ -279,8 +279,8 @@ class ChargingEngine:
                 "stage": "INSULATION_TEST",
                 "step": 4,
                 "total_steps": 4,
-                "title": "Uji Isolasi Tegangan Tinggi",
-                "message": f"⚡ Uji resistansi isolasi tegangan tinggi ({voltage_str}) aman • Relay daya aktif!",
+                "title": "Uji Isolasi & Keamanan Listrik",
+                "message": f"⚡ Pengujian resistansi isolasi ({voltage_str}) aman • Relay daya siap diaktifkan!",
                 "connector_id": connector_id,
                 "connector_name": connector.name,
                 "voltage": detected_vehicle.architecture_voltage or 400.0,
@@ -302,7 +302,7 @@ class ChargingEngine:
                 "status": "CONNECTED",
                 "vehicle": vehicle_data,
                 "user_id": user_id,
-                "message": f"✅ {connector.name} terhubung ke {detected_vehicle.brand} {detected_vehicle.model}!"
+                "message": f"✅ Verifikasi sistem selesai. {detected_vehicle.brand} {detected_vehicle.model} siap menerima pengisian daya."
             })
 
             await cls.broadcast({

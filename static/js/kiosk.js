@@ -288,13 +288,13 @@ async function triggerKioskSimulatePlug(connectorId) {
       const err = await res.json();
       await showAppAlert(err.detail || "Gagal inisialisasi nozzle!", { title: "Error Nozzle", type: "error" });
     } else {
-      await showAppAlert(`Nozzle terhubung ke kendaraan!\nHandshake ISO 15118 & auto-detect mobil sedang berlangsung... Buka halaman Driver untuk melanjutkan sesi.`, {
-        title: "Handshake Dimulai",
+      await showAppAlert(`Nozzle terhubung ke kendaraan!\nInisialisasi standar ISO 15118 & verifikasi kendaraan sedang berlangsung... Buka aplikasi Driver untuk mengatur pengisian.`, {
+        title: "Inisialisasi Dimulai",
         type: "success"
       });
     }
   } catch (err) {
-    await showAppAlert("Gagal simulasi colok nozzle: " + err, { title: "Koneksi Error", type: "error" });
+    await showAppAlert("Gagal inisialisasi nozzle: " + err, { title: "Koneksi Error", type: "error" });
   }
 }
 
