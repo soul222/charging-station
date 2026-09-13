@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any, List
 from .charging_engine import ChargingEngine
 from .port_mapper import PortMapper
 from .billing_service import BillingService
+from .station_manager import StationManager
 
 class ADBBatteryMonitor:
     """
@@ -230,6 +231,8 @@ class ADBBatteryMonitor:
             active_connector_ids = {
                 d["connector_id"] for d in current_devices.values() if d.get("connector_id")
             }
+            # Keep simulated connectors active so ADB monitor doesn't reset them
+            active_connector_ids.update(StationManager.simulated_plugged_ids)
 
             # 1. Connectors that are physically plugged: set to CONNECTED if currently AVAILABLE
             for serial, device in current_devices.items():

@@ -11,6 +11,7 @@ let selectedVehicle = null;
 let selectedConnector = null;
 let pendingNozzleConnector = null;
 let isPlugged = false;
+let isSimulatedMode = false;
 let currentStep = 1;
 let targetMode = "FULL";
 let paymentMethod = "WALLET";
@@ -441,8 +442,9 @@ function showPendingNozzleUI(target) {
   }
 }
 
-function cancelPendingNozzle() {
+function cancelPendingNozzle(resetSim = true) {
   pendingNozzleConnector = null;
+  if (resetSim) isSimulatedMode = false;
   const pendingCard = document.getElementById("pendingNozzleCard");
   if (pendingCard) {
     pendingCard.style.display = "none";
@@ -450,6 +452,94 @@ function cancelPendingNozzle() {
   const heroCard = document.getElementById("scanHeroCard");
   if (heroCard) {
     heroCard.style.display = "block";
+  }
+}
+
+async function simulatePlugCable() {
+  const target = pendingNozzleConnector || selectedConnector;
+  if (!target) {
+    await showAppAlert("Tidak ada nozzle yang sedang dipilih!", {
+      title: "Peringatan",
+      type: "warning"
+    });
+    return;
+  }
+
+  const btn = document.getElementById("btnSimulatePlug");
+  const origHtml = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>⏳</span> Menghubungkan kabel...`;
+  }
+
+  try {
+    // 1. Tell backend to mark nozzle as CONNECTED (simulated)
+    const plugRes = await fetch(`/api/station/connector/${target.id}/plug`, {
+      method: "POST"
+    });
+    if (!plugRes.ok) {
+      const errData = await plugRes.json().catch(() => ({}));
+      throw new Error(errData.detail || "Gagal mencolokkan kabel");
+    }
+
+    isSimulatedMode = true;
+    isPlugged = true;
+    selectedConnector = target;
+
+    // 2. Claim nozzle exclusively for current user
+    const claimed = await claimNozzle(target.id, true);
+    if (!claimed) {
+      throw new Error("Gagal mengklaim nozzle");
+    }
+
+    // 3. Update battery & USB badge UI
+    const badge = document.getElementById("usbDetectBadge");
+    if (badge) {
+      badge.className = "status-pill busy";
+      badge.innerHTML = `⚡ Mode Simulasi: Kabel ${target.name} Terhubung!`;
+    }
+
+    const desktopAdbBadge = document.getElementById("desktopAdbStatus");
+    if (desktopAdbBadge) {
+      desktopAdbBadge.className = "status-pill busy";
+      desktopAdbBadge.innerText = `⚡ Kabel Tercolok (Simulasi)`;
+    }
+
+    const carBatteryStatus = document.getElementById("carBatteryStatus");
+    if (carBatteryStatus && selectedVehicle) {
+      const soc = selectedVehicle.current_soc;
+      const currentMah = Math.round((soc / 100) * TOTAL_PHONE_BATTERY_MAH);
+      carBatteryStatus.innerText = `${soc}% (${currentMah.toLocaleString('id-ID')} / ${TOTAL_PHONE_BATTERY_MAH.toLocaleString('id-ID')} mAh) - Siap Cas`;
+    }
+
+    // 4. Hide pending card and navigate smoothly to Step 2
+    cancelPendingNozzle(false);
+    isSimulatedMode = true;
+    goToStep(2);
+
+    // 5. Notify user and explain next steps
+    await showAppAlert(
+      `Kabel ${target.name} berhasil terhubung (Mode Simulasi)!\n\nSilakan tentukan Target Cas Anda untuk melanjutkan ke Pembayaran.`,
+      {
+        title: "Kabel Terhubung!",
+        subtitle: `🔌 ${target.name} (Simulasi)`,
+        type: "success",
+        confirmText: "Lanjut ke Target Cas"
+      }
+    );
+
+    await loadStationData();
+  } catch (err) {
+    console.error("Simulation plug error:", err);
+    await showAppAlert("Terjadi kendala saat simulasi colok kabel: " + (err.message || err), {
+      title: "Gagal Simulasi",
+      type: "error"
+    });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHtml;
+    }
   }
 }
 
@@ -621,7 +711,7 @@ function goToStep(step) {
   currentStep = step;
 
   if (step >= 2) {
-    cancelPendingNozzle();
+    cancelPendingNozzle(false);
   }
 
   // If returning to step 1 without active charging, release nozzle claim & lock
@@ -633,6 +723,7 @@ function goToStep(step) {
       isPlugged = false;
       autoHandleUsbUnplugged();
     }
+    isSimulatedMode = false;
     selectedConnector = null;
   }
 
@@ -837,6 +928,9 @@ async function fetchAdbBatteryInitial() {
 }
 
 function handleAdbBatteryDisconnected() {
+  if (isSimulatedMode) {
+    return;
+  }
   adbBatteryState = { connected: false };
   isPlugged = false;
 
@@ -945,6 +1039,7 @@ async function autoHandleUsbUnplugged() {
     }
     await fetch(`/api/station/connector/${selectedConnector.id}/unplug`, { method: "POST" });
     isPlugged = false;
+    isSimulatedMode = false;
     loadStationData();
   } catch (err) {
     console.error("Gagal auto unplug:", err);
@@ -1351,7 +1446,7 @@ function setupWebSocket() {
       loadStationData();
     } else if (data.event === "NOZZLE_UNPLUGGED") {
       loadStationData();
-      if (selectedConnector && selectedConnector.id === data.connector_id) {
+      if (!isSimulatedMode && selectedConnector && selectedConnector.id === data.connector_id) {
         handleAdbBatteryDisconnected();
       }
     } else if (data.event === "TELEMETRY_UPDATE" && activeSessionId === data.session_id) {
@@ -1368,6 +1463,8 @@ function setupWebSocket() {
       loadStationData();
       if (activeSessionId === data.session_id) {
         activeSessionId = null;
+        isSimulatedMode = false;
+        isPlugged = false;
         const totalMah = data.total_energy_mah || Math.round((data.total_energy_kwh / 0.02) * TOTAL_PHONE_BATTERY_MAH);
         document.getElementById("receiptSessionCode").innerText = `#${data.session_code}`;
         const receiptElem = document.getElementById("receiptMah") || document.getElementById("receiptKwh");

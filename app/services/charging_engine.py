@@ -5,6 +5,7 @@ from typing import Dict, Any, Callable, List
 from ..database import SessionLocal
 from .. import models
 from .billing_service import BillingService
+from .station_manager import StationManager
 
 class ChargingEngine:
     _instance = None
@@ -254,6 +255,7 @@ class ChargingEngine:
                 connector.status = "AVAILABLE"
                 connector.current_session_id = None
                 connector.locked_by_user_id = None
+                StationManager.simulated_plugged_ids.discard(session.connector_id)
 
                 actual_cost, refund_amount = BillingService.settle_and_refund(db, session)
                 db.commit()
@@ -286,6 +288,7 @@ class ChargingEngine:
                     connector.status = "AVAILABLE"
                     connector.current_session_id = None
                     connector.locked_by_user_id = None
+                    StationManager.simulated_plugged_ids.discard(session.connector_id)
                     BillingService.settle_and_refund(db, session)
                     db.commit()
             except Exception:

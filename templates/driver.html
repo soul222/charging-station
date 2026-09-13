@@ -46,42 +46,6 @@
         </div>
       </div>
 
-      <!-- Station Controls Card -->
-      <div class="demo-card">
-        <div class="demo-card-title">⚡ KONTROL OPERASIONAL SPKLU</div>
-        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
-          <div style="font-size:0.72rem; color:#94A3B8;">Ganti Akun Driver Cepat:</div>
-          <div style="display: flex; gap: 6px;">
-            <button type="button" onclick="switchDemoUser('driver1', 'password123')" class="btn-demo-acc">
-              👤 Budi (150rb)
-            </button>
-            <button type="button" onclick="switchDemoUser('driver2', 'password123')" class="btn-demo-acc">
-              👤 Siti (200rb)
-            </button>
-          </div>
-          
-          <div style="margin-top: 6px; font-size:0.72rem; color:#94A3B8;">Uji Coba Port USB Laptop:</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
-            <button type="button" onclick="devSwitchUsbPort(1)" class="btn-demo-acc" id="btnDevPort1" title="Petakan port USB laptop ke Nozzle 1 (AC Type 2)">
-              ⚡ N1 (AC)
-            </button>
-            <button type="button" onclick="devSwitchUsbPort(2)" class="btn-demo-acc" id="btnDevPort2" title="Petakan port USB laptop ke Nozzle 2 (DC CHAdeMO)">
-              ⚡ N2 (DC)
-            </button>
-            <button type="button" onclick="devSwitchUsbPort(3)" class="btn-demo-acc" id="btnDevPort3" title="Petakan port USB laptop ke Nozzle 3 (DC CCS2)">
-              ⚡ N3 (CCS)
-            </button>
-          </div>
-          
-          <div style="margin-top: 6px; font-size:0.72rem; color:#94A3B8;">Aksi Operator:</div>
-          <a href="/kiosk" target="_blank" class="btn-demo-action" style="text-decoration:none; text-align:center;">
-            🖥️ Buka Layar Kiosk (Tab Baru) ↗
-          </a>
-          <button type="button" onclick="emergencyResetStation()" class="btn-demo-action reset" title="Bersihkan dan reset sesi stasiun ke awal">
-            🔄 Reset Sesi Stasiun (1-Klik)
-          </button>
-        </div>
-      </div>
 
       <!-- Mode Tampilan Toggle -->
       <div class="demo-card">
@@ -295,8 +259,24 @@
             <span class="status-pill warning" style="font-size: 0.65rem; padding: 3px 7px;">MENUNGGU KABEL</span>
           </div>
 
-          <div id="pendingNozzleDesc" style="font-size: 0.8rem; color: #CBD5E1; line-height: 1.5; margin-bottom: 16px; background: rgba(15, 23, 42, 0.6); padding: 10px 12px; border-radius: 10px; border: 1px solid #1E293B;">
+          <div id="pendingNozzleDesc" style="font-size: 0.8rem; color: #CBD5E1; line-height: 1.5; margin-bottom: 14px; background: rgba(15, 23, 42, 0.6); padding: 10px 12px; border-radius: 10px; border: 1px solid #1E293B;">
             🔌 Silakan ambil nozzle dari totem SPKLU dan hubungkan kabel ke HP Anda.
+          </div>
+
+          <!-- SIMULATION TRIGGER CALLOUT & BUTTON (UNTUK PENGUJIAN CLOUD / VPS) -->
+          <div style="background: rgba(14, 165, 233, 0.1); border: 1px dashed #38BDF8; border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <span style="font-size: 0.74rem; font-weight: 700; color: #38BDF8; display: flex; align-items: center; gap: 5px;">
+                <span>🌐</span> Mode Pengujian Cloud / VPS
+              </span>
+              <span class="status-pill online" style="font-size: 0.62rem; padding: 2px 6px;">SIMULASI READY</span>
+            </div>
+            <p style="font-size: 0.74rem; color: #94A3B8; line-height: 1.4; margin-bottom: 10px;">
+              Kabel fisik tidak tersedia di server remote. Tekan tombol di bawah untuk mensimulasikan kabel telah dicolokkan ke HP Anda:
+            </p>
+            <button type="button" id="btnSimulatePlug" onclick="simulatePlugCable()" class="btn btn-primary btn-block" style="padding: 13px 14px; font-size: 0.92rem; font-weight: 800; border-radius: 10px; background: linear-gradient(135deg, #00C6FF 0%, #0072FF 100%); box-shadow: 0 4px 20px rgba(0, 198, 255, 0.45); display: flex; align-items: center; justify-content: center; gap: 8px; border: none; color: #fff; cursor: pointer;">
+              <span>⚡</span> Sudah Tercolok (Lanjut ke Target Cas) ➜
+            </button>
           </div>
 
           <div style="display: flex; gap: 8px;">
@@ -325,8 +305,26 @@
             📷 Scan QR Nozzle SPKLU
           </button>
 
-          <div style="font-size: 0.72rem; color: #64748B;">
+          <div style="font-size: 0.72rem; color: #64748B; margin-bottom: 14px;">
             ⚡ Nozzle otomatis terkunci ke akun Anda & langsung menuju Target Cas
+          </div>
+
+          <!-- QUICK SIMULATION SELECTOR FOR REMOTE / VPS TESTING -->
+          <div style="padding-top: 14px; border-top: 1px dashed rgba(56, 189, 248, 0.25); text-align: left;">
+            <div style="font-size: 0.73rem; color: #38BDF8; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="display:flex; align-items:center; gap:5px;"><span>🌐</span> Uji Coba VPS (Pilih Nozzle Langsung):</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+              <button type="button" onclick="handleScannedNozzle(1)" class="btn btn-secondary" style="padding: 9px 4px; font-size: 0.72rem; font-weight: 700; border-radius: 8px; border-color: rgba(56, 189, 248, 0.4);">
+                🔌 Nozzle 1 (AC)
+              </button>
+              <button type="button" onclick="handleScannedNozzle(2)" class="btn btn-secondary" style="padding: 9px 4px; font-size: 0.72rem; font-weight: 700; border-radius: 8px; border-color: rgba(56, 189, 248, 0.4);">
+                ⚡ Nozzle 2 (DC)
+              </button>
+              <button type="button" onclick="handleScannedNozzle(3)" class="btn btn-secondary" style="padding: 9px 4px; font-size: 0.72rem; font-weight: 700; border-radius: 8px; border-color: rgba(56, 189, 248, 0.4);">
+                ⚡ Nozzle 3 (CCS)
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -540,8 +538,26 @@
         </div>
       </div>
 
-      <div id="qrScanStatusMsg" style="font-size: 0.75rem; color: #38BDF8; margin-bottom: 16px; font-weight: 600;">
+      <div id="qrScanStatusMsg" style="font-size: 0.75rem; color: #38BDF8; margin-bottom: 14px; font-weight: 600;">
         Pindai QR Nozzle di Layar Totem Kiosk
+      </div>
+
+      <!-- FALLBACK QUICK SELECT FOR VPS / NO CAMERA -->
+      <div style="margin-bottom: 14px; padding: 10px; background: rgba(56, 189, 248, 0.08); border-radius: 10px; border: 1px dashed rgba(56, 189, 248, 0.3); text-align: left;">
+        <div style="font-size: 0.73rem; color: #38BDF8; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+          <span>🌐</span> Atau pilih Nozzle langsung (Simulasi):
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
+          <button type="button" onclick="handleScannedNozzle(1)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
+            Nozzle 1 (AC)
+          </button>
+          <button type="button" onclick="handleScannedNozzle(2)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
+            Nozzle 2 (DC)
+          </button>
+          <button type="button" onclick="handleScannedNozzle(3)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
+            Nozzle 3 (CCS)
+          </button>
+        </div>
       </div>
 
       <button class="btn btn-secondary btn-block" onclick="closeQrScannerModal()" style="font-size: 0.85rem;">

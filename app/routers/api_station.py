@@ -29,13 +29,24 @@ def get_station_info(station_code: str, db: Session = Depends(get_db)):
 
 @router.post("/connector/{connector_id}/plug")
 async def plug_nozzle(connector_id: int, db: Session = Depends(get_db)):
-    connector = StationManager.plug_connector(db, connector_id)
+    connector = StationManager.plug_connector(db, connector_id, is_simulated=True)
     await ChargingEngine.broadcast({
         "event": "NOZZLE_PLUGGED",
         "station_id": connector.station_id,
         "connector_id": connector.id,
         "connector_name": connector.name,
         "status": connector.status
+    })
+    await ChargingEngine.broadcast({
+        "event": "PORT_NOZZLE_CONNECTED",
+        "serial": "SIMULATED-DEV",
+        "port": f"Port_#000{connector.connector_number}",
+        "port_key": f"Port USB {connector.connector_number} (Simulasi)",
+        "connector_id": connector.id,
+        "connector_name": connector.name,
+        "type_category": connector.type_category,
+        "battery_level": 45,
+        "message": f"⚡ Kabel {connector.name} berhasil dicolokkan (Simulasi)!"
     })
     return {"status": "SUCCESS", "message": f"{connector.name} berhasil dicolokkan ke HP!", "connector_status": connector.status}
 
@@ -412,6 +423,7 @@ async def emergency_reset(db: Session = Depends(get_db)):
 
     # 3. Reset all connectors to AVAILABLE
     db.query(models.Connector).update({"status": "AVAILABLE", "current_session_id": None, "locked_by_user_id": None})
+    StationManager.simulated_plugged_ids.clear()
     db.commit()
 
     # 4. Broadcast reset event to all clients
