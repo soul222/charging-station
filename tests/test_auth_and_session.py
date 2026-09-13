@@ -470,5 +470,54 @@ class TestAuthAndSessionIsolation(unittest.TestCase):
         ))
         self.assertEqual(res_same["status"], "CONNECTED")
 
+    def test_get_station_active_sessions_returns_charging_nozzles(self):
+        # Create 2 charging sessions concurrently on c1 and c2
+        s1 = models.ChargingSession(
+            session_code="EV-TEST-001",
+            user_id=self.user1.id,
+            station_id=self.station.id,
+            connector_id=self.c1.id,
+            vehicle_id=self.phone1.id,
+            start_soc=20.0,
+            target_soc=80.0,
+            current_soc=45.0,
+            target_type="FULL",
+            target_kwh=30.0,
+            deposit_paid=50000.0,
+            payment_method="WALLET",
+            status="CHARGING",
+            start_time=datetime.utcnow()
+        )
+        s2 = models.ChargingSession(
+            session_code="EV-TEST-002",
+            user_id=self.user2.id,
+            station_id=self.station.id,
+            connector_id=self.c2.id,
+            vehicle_id=self.phone2.id,
+            start_soc=30.0,
+            target_soc=90.0,
+            current_soc=60.0,
+            target_type="FULL",
+            target_kwh=40.0,
+            deposit_paid=75000.0,
+            payment_method="WALLET",
+            status="CHARGING",
+            start_time=datetime.utcnow()
+        )
+        self.db.add_all([s1, s2])
+        self.c1.status = "CHARGING"
+        self.c2.status = "CHARGING"
+        self.db.commit()
+
+        sessions = api_station.get_station_active_sessions(self.station.code, db=self.db)
+        self.assertEqual(len(sessions), 2)
+        sess_codes = [s["session_code"] for s in sessions]
+        self.assertIn("EV-TEST-001", sess_codes)
+        self.assertIn("EV-TEST-002", sess_codes)
+        
+        c1_item = next(s for s in sessions if s["session_code"] == "EV-TEST-001")
+        self.assertEqual(c1_item["connector_id"], self.c1.id)
+        self.assertEqual(c1_item["connector_name"], self.c1.name)
+
 if __name__ == "__main__":
     unittest.main()

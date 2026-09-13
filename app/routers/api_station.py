@@ -22,6 +22,54 @@ def get_adb_battery():
         return {"connected": False}
     return state
 
+@router.get("/{station_code}/active-sessions")
+def get_station_active_sessions(station_code: str, db: Session = Depends(get_db)):
+    station = db.query(models.Station).filter(models.Station.code == station_code).first()
+    if not station:
+        raise HTTPException(status_code=404, detail="Stasiun tidak ditemukan.")
+    
+    sessions = db.query(models.ChargingSession).filter(
+        models.ChargingSession.station_id == station.id,
+        models.ChargingSession.status == "CHARGING"
+    ).all()
+    
+    result = []
+    for s in sessions:
+        connector = db.query(models.Connector).filter(models.Connector.id == s.connector_id).first()
+        vehicle = db.query(models.Vehicle).filter(models.Vehicle.id == s.vehicle_id).first()
+        tariff = connector.tariff_per_kwh if connector else 2466.0
+        efficiency = vehicle.efficiency_km_kwh if vehicle else 6.8
+        km_added = round((s.energy_delivered_kwh or 0.0) * efficiency, 1)
+        cost = min(s.deposit_paid, round((s.energy_delivered_kwh or 0.0) * tariff, 0))
+        petrol_cost = km_added * 1300.0
+        money_saved = max(0.0, petrol_cost - cost)
+        arch_v = vehicle.architecture_voltage if vehicle and vehicle.architecture_voltage else 400.0
+        kw = s.current_power_kw or 0.0
+        current_amps = round((kw * 1000.0) / arch_v, 1) if arch_v else 0.0
+        
+        result.append({
+            "session_id": s.id,
+            "session_code": s.session_code,
+            "connector_id": s.connector_id,
+            "connector_name": connector.name if connector else f"Nozzle #{s.connector_id}",
+            "connector_number": connector.connector_number if connector else 1,
+            "car_brand": vehicle.brand if vehicle else "EV",
+            "car_model": vehicle.model if vehicle else "Real EV",
+            "car_plate": vehicle.license_plate if vehicle else "-",
+            "current_soc": s.current_soc,
+            "target_soc": s.target_soc,
+            "energy_delivered_kwh": s.energy_delivered_kwh,
+            "current_power_kw": kw,
+            "voltage": round(arch_v, 1),
+            "current_amps": current_amps,
+            "km_added": km_added,
+            "charging_speed_km_per_min": round((kw * efficiency) / 60.0, 1) if kw else 0.0,
+            "money_saved_petrol": money_saved,
+            "current_cost": cost,
+            "deposit_paid": s.deposit_paid
+        })
+    return result
+
 @router.get("/{station_code}", response_model=schemas.StationResponse)
 def get_station_info(station_code: str, db: Session = Depends(get_db)):
     station = StationManager.get_station_with_connectors(db, station_code)

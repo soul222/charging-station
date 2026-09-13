@@ -49,64 +49,9 @@
 
       <!-- RIGHT SIDE: 4 NOZZLES & LIVE TELEMETRY -->
       <div>
-        <!-- ACTIVE TELEMETRY PANEL (Appears when charging) -->
-        <div id="liveTelemetryCard" class="card" style="display: none; background: #0E1626; border: 2px solid var(--cyan-neon); box-shadow: 0 0 35px var(--cyan-glow);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <span class="status-pill busy">⚡ CHARGING IN PROGRESS</span>
-              <span id="kioskCarBadge" class="status-pill online" style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; border-color: #0284C7;">🚗 <span id="kioskCarModel">Real EV</span></span>
-              <span id="activeSessionCode" style="font-size: 0.85rem; color: #94A3B8; font-family: monospace;"></span>
-            </div>
-            <button class="btn btn-danger" onclick="emergencyStopKiosk()" style="padding: 8px 16px; font-size: 0.85rem;">
-              🛑 Emergency Stop
-            </button>
-          </div>
-
-          <div class="kiosk-telemetry-grid">
-            <div class="telemetry-dial">
-              <div class="dial-value" id="kioskWattVal">0.0</div>
-              <div class="dial-unit" id="kioskPowerUnit">kW DAYA</div>
-            </div>
-
-            <div>
-              <div style="margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;">
-                  <span style="color: var(--text-muted);">Baterai Mobil Listrik (BMS ISO 15118)</span>
-                  <span id="kioskSocVal" style="font-weight: 700; color: var(--cyan-neon);">0%</span>
-                </div>
-                <div style="height: 12px; background: var(--bg-input); border-radius: 9999px; overflow: hidden;">
-                  <div id="kioskSocBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #00F0FF, #10B981); transition: width 0.5s ease;"></div>
-                </div>
-              </div>
-
-              <div class="stat-grid" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="stat-item">
-                  <div class="label">Energi Terisi</div>
-                  <div class="val" id="kioskKwhVal" style="color: #fff;">0.00 kWh</div>
-                </div>
-                <div class="stat-item">
-                  <div class="label">Jarak Tempuh</div>
-                  <div class="val" style="color: #4ADE80;" id="kioskKmVal">+0 KM</div>
-                </div>
-                <div class="stat-item">
-                  <div class="label">Kecepatan Cas</div>
-                  <div class="val" style="color: var(--cyan-neon);" id="kioskSpeedVal">+0.0 km/m</div>
-                </div>
-                <div class="stat-item">
-                  <div class="label">Komparasi Hemat Bensin</div>
-                  <div class="val" style="color: #FBBF24;" id="kioskSavingsVal">Hemat Rp 0</div>
-                </div>
-                <div class="stat-item">
-                  <div class="label">Biaya SPKLU</div>
-                  <div class="val" style="color: #38BDF8;" id="kioskCostVal">Rp 0</div>
-                </div>
-                <div class="stat-item">
-                  <div class="label">Tegangan / Arus</div>
-                  <div class="val" id="kioskVoltAmpVal">0 V / 0 A</div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <!-- ACTIVE SESSIONS CONTAINER (Supports simultaneous multi-nozzle charging) -->
+        <div id="activeSessionsContainer" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px;">
+          <!-- Injected dynamically by kiosk.js per active nozzle session -->
         </div>
 
         <!-- 3 NOZZLES GRID -->
