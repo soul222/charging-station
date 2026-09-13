@@ -38,11 +38,11 @@
         </div>
         <div class="demo-info-row">
           <span>Tarif Berlaku:</span>
-          <b style="color: #38BDF8;">Rp 2.466 / 500 mAh</b>
+          <b style="color: #38BDF8;">Rp 2.466 - Rp 3.500 / kWh</b>
         </div>
         <div class="demo-info-row">
-          <span>Sensor Hardware:</span>
-          <span id="desktopAdbStatus" class="status-pill online" style="font-size:0.68rem; padding: 2px 8px;">📱 Status Kabel: Standby</span>
+          <span>Sistem Komunikasi:</span>
+          <span id="desktopAdbStatus" class="status-pill online" style="font-size:0.68rem; padding: 2px 8px;">⚡ Auto-Detect EV (ISO 15118)</span>
         </div>
       </div>
 
@@ -60,15 +60,15 @@
             </button>
           </div>
           
-          <div style="margin-top: 6px; font-size:0.72rem; color:#94A3B8;">Uji Coba Port USB Laptop:</div>
+          <div style="margin-top: 6px; font-size:0.72rem; color:#94A3B8;">Simulasi Colok Nozzle (Auto-Detect EV):</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
-            <button type="button" onclick="devSwitchUsbPort(1)" class="btn-demo-acc" id="btnDevPort1" title="Petakan port USB laptop ke Nozzle 1 (AC Type 2)">
+            <button type="button" onclick="triggerSimulatedPlug(1)" class="btn-demo-acc" id="btnDevPort1" title="Colok Nozzle 1 (AC Type 2 22kW) dan auto-detect EV">
               ⚡ N1 (AC)
             </button>
-            <button type="button" onclick="devSwitchUsbPort(2)" class="btn-demo-acc" id="btnDevPort2" title="Petakan port USB laptop ke Nozzle 2 (DC CHAdeMO)">
+            <button type="button" onclick="triggerSimulatedPlug(2)" class="btn-demo-acc" id="btnDevPort2" title="Colok Nozzle 2 (DC CHAdeMO 50kW) dan auto-detect EV">
               ⚡ N2 (DC)
             </button>
-            <button type="button" onclick="devSwitchUsbPort(3)" class="btn-demo-acc" id="btnDevPort3" title="Petakan port USB laptop ke Nozzle 3 (DC CCS2)">
+            <button type="button" onclick="triggerSimulatedPlug(3)" class="btn-demo-acc" id="btnDevPort3" title="Colok Nozzle 3 (DC CCS2 150kW) dan auto-detect EV">
               ⚡ N3 (CCS)
             </button>
           </div>
@@ -241,30 +241,30 @@
 
       <div style="padding: 16px; flex: 1; overflow-y: auto;">
       
-      <!-- CONNECTED DEVICE STATUS CARD (Tampil di Step 2 & 3 setelah nozzle & kabel tercolok) -->
-      <div class="card" id="connectedDeviceCard" style="display: none; background: #111A2E; margin-bottom: 16px; padding: 14px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <!-- CONNECTED REAL EV STATUS CARD (Tampil di Step 2 & 3 setelah handshake terverifikasi) -->
+      <div class="card" id="connectedDeviceCard" style="display: none; background: #111A2E; margin-bottom: 16px; padding: 14px; border: 1px solid var(--border-color);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
           <div>
-            <div style="font-size: 0.7rem; color: var(--text-muted);">PERANGKAT TERHUBUNG</div>
-            <div style="font-size: 0.95rem; font-weight: 700; color: #fff;" id="driverName">Budi Santoso</div>
+            <div style="font-size: 0.68rem; color: #38BDF8; font-weight: 800; letter-spacing: 0.5px;">KENDARAAN TERDETEKSI (ISO 15118)</div>
+            <div style="font-size: 1rem; font-weight: 800; color: #fff;" id="driverCarName">Hyundai Ioniq 5 Long Range</div>
+            <div style="font-size: 0.75rem; color: #94A3B8;" id="driverCarSpecs">Plat: B 1888 ION • Kapasitas: 72.6 kWh • 800V</div>
           </div>
-          <span style="background: rgba(56, 189, 248, 0.1); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
-            <span>📱</span> Baterai HP (ADB)
+          <span class="status-pill online" style="font-size: 0.72rem; padding: 4px 8px;" id="driverCarBadge">
+            🚗 REAL EV
           </span>
         </div>
 
         <!-- BATTERY STATUS INDICATOR -->
         <div style="background: #0B101D; border-radius: 10px; padding: 10px; border: 1px solid #1E293B;">
           <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 5px;">
-            <span id="batteryLabelText" style="color: #94A3B8;">📱 Baterai HP Fisik (ADB)</span>
-            <span id="carBatteryStatus" style="font-weight: 700; color: var(--cyan-neon);">Mendeteksi...</span>
+            <span id="batteryLabelText" style="color: #94A3B8;">Status Baterai Kendaraan:</span>
+            <span id="carBatteryStatus" style="font-weight: 700; color: var(--cyan-neon);">28.0% (Siap Cas)</span>
           </div>
-          <div style="height: 8px; background: #1E293B; border-radius: 9999px; overflow: hidden;">
-            <div id="carBatteryBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #3B82F6, #00F0FF); transition: width 0.4s ease;"></div>
+          <div style="height: 10px; background: #1E293B; border-radius: 9999px; overflow: hidden;">
+            <div id="carBatteryBar" style="height: 100%; width: 28%; background: linear-gradient(90deg, #3B82F6, #00F0FF); transition: width 0.4s ease;"></div>
           </div>
-          <!-- AUTO USB DETECTION BADGE -->
-          <div id="usbDetectBadge" class="status-pill warning" style="margin-top: 8px; width: 100%; display: flex; justify-content: center; font-size: 0.72rem; padding: 4px 6px;">
-            📱 Kabel USB Belum Tercolok (Standby)
+          <div id="usbDetectBadge" class="status-pill online" style="margin-top: 8px; width: 100%; display: flex; justify-content: center; font-size: 0.72rem; padding: 4px 6px;">
+            ⚡ Plug & Charge Terverifikasi • Pin Nozzle Terkunci
           </div>
         </div>
       </div>
@@ -282,21 +282,21 @@
       <!-- STEP 1: SCAN QR NOZZLE (LANDING FLOW) -->
       <!-- ============================================== -->
       <div id="step1View">
-        <!-- PENDING NOZZLE WAITING CARD (Tampil saat driver scan nozzle sebelum mencolokkan kabel) -->
+        <!-- PENDING NOZZLE WAITING CARD -->
         <div id="pendingNozzleCard" class="card" style="display: none; margin-bottom: 16px; padding: 20px 16px; border: 2px solid #38BDF8; background: linear-gradient(180deg, rgba(14, 165, 233, 0.15) 0%, #0C1527 100%); box-shadow: 0 0 25px rgba(56, 189, 248, 0.25);">
           <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
             <div style="width: 48px; height: 48px; border-radius: 14px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38BDF8; display: flex; align-items: center; justify-content: center; font-size: 1.6rem;">
               🔌
             </div>
             <div style="flex: 1;">
-              <div style="font-size: 0.7rem; color: #38BDF8; font-weight: 800; letter-spacing: 0.5px;">MENUNGGU COLOKAN FISIK</div>
+              <div style="font-size: 0.7rem; color: #38BDF8; font-weight: 800; letter-spacing: 0.5px;">MENUNGGU KONEKSI NOZZLE</div>
               <div id="pendingNozzleName" style="font-size: 1.05rem; font-weight: 800; color: #fff;">Nozzle 3 - DC (CCS2)</div>
             </div>
-            <span class="status-pill warning" style="font-size: 0.65rem; padding: 3px 7px;">MENUNGGU KABEL</span>
+            <span class="status-pill warning" style="font-size: 0.65rem; padding: 3px 7px;">MENUNGGU COLOK</span>
           </div>
 
           <div id="pendingNozzleDesc" style="font-size: 0.8rem; color: #CBD5E1; line-height: 1.5; margin-bottom: 16px; background: rgba(15, 23, 42, 0.6); padding: 10px 12px; border-radius: 10px; border: 1px solid #1E293B;">
-            🔌 Silakan ambil nozzle dari totem SPKLU dan hubungkan kabel ke HP Anda.
+            🔌 Silakan colokkan nozzle ke charging port mobil untuk memulai auto-detect.
           </div>
 
           <div style="display: flex; gap: 8px;">
@@ -307,8 +307,8 @@
         </div>
 
         <!-- SCAN HERO CARD -->
-        <div id="scanHeroCard" class="card" style="margin-bottom: 16px; text-align: center; padding: 24px 18px; border: 1px solid rgba(0, 240, 255, 0.35); background: linear-gradient(180deg, #131E33 0%, #0B1220 100%); box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
-          <div style="width: 76px; height: 76px; margin: 0 auto 16px; border-radius: 22px; background: rgba(0, 240, 255, 0.1); border: 2px solid var(--cyan-neon); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; box-shadow: 0 0 25px var(--cyan-glow);">
+        <div id="scanHeroCard" class="card" style="margin-bottom: 16px; text-align: center; padding: 22px 18px; border: 1px solid rgba(0, 240, 255, 0.35); background: linear-gradient(180deg, #131E33 0%, #0B1220 100%); box-shadow: 0 8px 30px rgba(0,0,0,0.4);">
+          <div style="width: 70px; height: 70px; margin: 0 auto 14px; border-radius: 20px; background: rgba(0, 240, 255, 0.1); border: 2px solid var(--cyan-neon); display: flex; align-items: center; justify-content: center; font-size: 2rem; box-shadow: 0 0 25px var(--cyan-glow);">
             📷
           </div>
 
@@ -316,17 +316,49 @@
             Pindai QR Nozzle SPKLU
           </h3>
 
-          <p style="font-size: 0.8rem; color: #94A3B8; line-height: 1.5; margin-bottom: 20px; padding: 0 6px;">
-            Untuk memulai pengisian, silakan scan QR Code yang tertera pada kartu Nozzle di layar <b>Totem Kiosk SPKLU</b>.
+          <p style="font-size: 0.8rem; color: #94A3B8; line-height: 1.5; margin-bottom: 18px; padding: 0 4px;">
+            Scan QR Code pada nozzle totem Kiosk SPKLU untuk mendeteksi mobil listrik dan memulai pengisian.
           </p>
 
           <!-- BIG PRIMARY SCAN BUTTON -->
-          <button class="btn btn-primary btn-block" id="btnOpenQrScanner" onclick="openQrScannerModal()" style="padding: 16px; font-size: 1.05rem; font-weight: 800; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 4px 25px rgba(0, 198, 255, 0.45); letter-spacing: 0.3px;">
+          <button class="btn btn-primary btn-block" id="btnOpenQrScanner" onclick="openQrScannerModal()" style="padding: 15px; font-size: 1rem; font-weight: 800; border-radius: 14px; margin-bottom: 16px; box-shadow: 0 4px 25px rgba(0, 198, 255, 0.45);">
             📷 Scan QR Nozzle SPKLU
           </button>
 
-          <div style="font-size: 0.72rem; color: #64748B;">
-            ⚡ Nozzle otomatis terkunci ke akun Anda & langsung menuju Target Cas
+          <!-- DIRECT NOZZLE PICKERS (AUTO-DETECT EV) -->
+          <div style="border-top: 1px dashed #1E293B; padding-top: 14px; text-align: left;">
+            <div style="font-size: 0.74rem; color: #94A3B8; font-weight: 700; margin-bottom: 8px; text-align: center;">
+              ⚡ Atau Simulasi Colok Langsung (Auto-Detect EV):
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button type="button" onclick="triggerSimulatedPlug(1)" class="btn-demo-nozzle">
+                <div>
+                  <div style="font-weight: 800; color: #fff;">🔌 Nozzle 1: AC (Type 2)</div>
+                  <div style="font-size: 0.7rem; color: #94A3B8;">Max 22 kW Normal Charge</div>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #C084FC; font-weight: 800; font-size: 0.78rem;">Rp 2.466/kWh</span>
+                </div>
+              </button>
+              <button type="button" onclick="triggerSimulatedPlug(2)" class="btn-demo-nozzle">
+                <div>
+                  <div style="font-weight: 800; color: #fff;">⚡ Nozzle 2: DC (CHAdeMO)</div>
+                  <div style="font-size: 0.7rem; color: #94A3B8;">Max 50 kW Fast Charge</div>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #38BDF8; font-weight: 800; font-size: 0.78rem;">Rp 3.000/kWh</span>
+                </div>
+              </button>
+              <button type="button" onclick="triggerSimulatedPlug(3)" class="btn-demo-nozzle">
+                <div>
+                  <div style="font-weight: 800; color: #fff;">⚡ Nozzle 3: DC (CCS2)</div>
+                  <div style="font-size: 0.7rem; color: #94A3B8;">Max 150 kW Ultra-Fast</div>
+                </div>
+                <div style="text-align: right;">
+                  <span style="color: #4ADE80; font-weight: 800; font-size: 0.78rem;">Rp 3.500/kWh</span>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -346,47 +378,59 @@
         </div>
 
         <div class="card" style="margin-bottom: 16px;">
-          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 12px;">Pilih Target Pengisian</h3>
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 12px;">Pilih Target Pengisian (Real EV)</h3>
           
-          <div class="tab-row">
-            <button class="tab-btn active" id="tabFull" onclick="selectTargetMode('FULL')">Charge Full (100%)</button>
-            <button class="tab-btn" id="tabManual" onclick="selectTargetMode('MANUAL_MAH')">Input Manual (mAh)</button>
+          <div class="tab-row" style="grid-template-columns: 1fr 1fr 1fr;">
+            <button class="tab-btn active" id="tabFull80" onclick="selectTargetMode('FULL_80')">Cas 80% (Awet)</button>
+            <button class="tab-btn" id="tabFull100" onclick="selectTargetMode('FULL_100')">Cas 100% (Penuh)</button>
+            <button class="tab-btn" id="tabManualKwh" onclick="selectTargetMode('MANUAL_KWH')">Input kWh</button>
           </div>
 
           <div id="targetModeSummary" style="margin-top: 8px; margin-bottom: 8px; font-size: 0.76rem; color: #38BDF8;">
-            🎯 Mengisi baterai hingga 100% penuh
+            🎯 Mengisi baterai hingga 80% (Rekomendasi pabrikan EV untuk menjaga keawetan sel baterai)
           </div>
 
-          <div id="manualMahBox" style="display: none; margin-bottom: 14px;">
+          <div id="manualKwhBox" style="display: none; margin-bottom: 14px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label style="font-size: 0.8rem; color: var(--text-muted);">Jumlah Daya yang Diinginkan:</label>
-              <span id="maxManualMahHint" style="font-size: 0.74rem; color: var(--cyan-neon); font-weight: 700;">Max: 1.800 mAh</span>
+              <label style="font-size: 0.8rem; color: var(--text-muted);">Jumlah Energi yang Diinginkan:</label>
+              <span id="maxManualKwhHint" style="font-size: 0.74rem; color: var(--cyan-neon); font-weight: 700;">Max: 50.0 kWh</span>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <input type="number" id="inputManualMah" value="1000" min="50" max="5000" step="50" oninput="onManualMahChanged()" style="flex:1; background:var(--bg-input); border:1px solid var(--border-color); color:#fff; padding:10px 14px; border-radius:10px; font-size:1rem; font-weight:700;">
-              <span style="align-self: center; font-weight: 700; color: var(--cyan-neon);">mAh</span>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <input type="number" id="inputManualKwh" value="15" min="1" max="100" step="1" oninput="onManualKwhChanged()" style="flex:1; background:var(--bg-input); border:1px solid var(--border-color); color:#fff; padding:10px 14px; border-radius:10px; font-size:1.1rem; font-weight:800;">
+              <span style="align-self: center; font-weight: 800; color: var(--cyan-neon); font-size: 1rem;">kWh</span>
             </div>
-            <div id="manualMahWarning" style="display: none; font-size: 0.72rem; color: #F59E0B; margin-top: 4px;">
-              ⚠️ Input melebihi sisa kapasitas baterai, disesuaikan ke batas maksimal.
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="kwh-chip" onclick="quickSetKwh(10)">+10 kWh</button>
+              <button type="button" class="kwh-chip" onclick="quickSetKwh(20)">+20 kWh</button>
+              <button type="button" class="kwh-chip" onclick="quickSetKwh(30)">+30 kWh</button>
+              <button type="button" class="kwh-chip" onclick="quickSetKwh(40)">+40 kWh</button>
             </div>
           </div>
 
           <!-- ESTIMATION SUMMARY BOX -->
           <div style="background: #0D1524; border: 1px solid #1E293B; border-radius: 12px; padding: 14px; margin-top: 10px;">
             <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
-              <span style="color: var(--text-muted);">Daya Dibutuhkan:</span>
-              <span id="estEnergy" style="font-weight: 700; color: #fff;">0 mAh</span>
+              <span style="color: var(--text-muted);">Energi Dibutuhkan:</span>
+              <span id="estEnergy" style="font-weight: 700; color: #fff;">0 kWh</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
-              <span style="color: var(--text-muted);">Tarif Listrik (per 500 mAh):</span>
-              <span id="estTariff" style="font-weight: 700; color: #38BDF8;">Rp 0</span>
+              <span style="color: var(--text-muted);">Jarak Tempuh Tambahan:</span>
+              <span id="estKm" style="font-weight: 800; color: #4ADE80;">+0 KM</span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
-              <span style="color: var(--text-muted);">Estimasi Durasi:</span>
-              <span id="estDuration" style="font-weight: 700; color: #4ADE80;">0 Menit</span>
+              <span style="color: var(--text-muted);">Tarif Listrik SPKLU:</span>
+              <span id="estTariff" style="font-weight: 700; color: #38BDF8;">Rp 0 / kWh</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+              <span style="color: var(--text-muted);">Komparasi Hemat Bensin:</span>
+              <span id="estSavings" style="font-weight: 700; color: #FBBF24;">Hemat Rp 0 vs Pertamax</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 6px;">
+              <span style="color: var(--text-muted);">Estimasi Durasi Pengisian:</span>
+              <span id="estDuration" style="font-weight: 700; color: #C084FC;">0 Menit</span>
             </div>
             <div style="border-top: 1px dashed #2A3854; margin: 8px 0; padding-top: 8px; display: flex; justify-content: space-between; font-size: 0.95rem;">
-              <span style="font-weight: 700; color: #fff;">Total Deposit:</span>
+              <span style="font-weight: 700; color: #fff;">Total Deposit Di-Hold:</span>
               <span id="estTotalDeposit" style="font-weight: 800; color: var(--cyan-neon);">Rp 0</span>
             </div>
           </div>
@@ -406,7 +450,7 @@
         <div style="background: #0E1A30; border: 1px solid #3B82F6; border-radius: 14px; padding: 16px; margin-bottom: 16px; text-align: center;">
           <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Total Deposit Yang Di-Hold</div>
           <div style="font-size: 1.6rem; font-weight: 800; color: var(--cyan-neon); margin-top: 4px;" id="payDepositAmountText">Rp 0</div>
-          <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 4px;">*Sisa saldo otomatis dikembalikan jika Anda berhenti di tengah jalan.</div>
+          <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 4px;">*Sisa deposit otomatis dikembalikan jika pengisian dihentikan lebih awal.</div>
         </div>
 
         <div class="card" style="margin-bottom: 24px;">
@@ -424,14 +468,14 @@
               Saldo Anda: <b style="color:#4ADE80;">Rp <span id="walletBalDesc">0</span></b>
             </div>
             <p style="font-size: 0.75rem; color: #64748B;">
-              Dana akan di-hold sementara. Pemotongan riil dihitung sesuai daya (mAh) yang masuk.
+              Saldo akan di-hold sementara. Pemotongan riil dihitung berdasarkan total energi listrik (kWh) yang terisi ke mobil.
             </p>
           </div>
 
           <!-- QRIS CONTENT -->
           <div id="payContentQris" style="display: none; text-align: center;">
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
-              Scan QRIS dinamis via aplikasi bank / e-wallet apa saja:
+              Scan QRIS dinamis via aplikasi perbankan atau e-wallet:
             </p>
             <div class="qris-box">
               <div id="driverQrisCode"></div>
@@ -443,7 +487,7 @@
 
           <!-- EMONEY CONTENT -->
           <div id="payContentEmoney" style="display: none; padding: 12px 14px; background: rgba(56, 189, 248, 0.07); border: 1px dashed rgba(56, 189, 248, 0.35); border-radius: 12px; font-size: 0.82rem; color: #94A3B8; text-align: center;">
-            💳 <b>Tap Kartu E-Money:</b> Pop-up tempel kartu fisik akan muncul otomatis saat Anda menekan tombol <i>Mulai Cas Sekarang</i>.
+            💳 <b>Tap Kartu E-Money:</b> Tempelkan kartu fisik (BCA Flazz / Mandiri E-Money) saat Anda menekan tombol di bawah.
           </div>
         </div>
 
@@ -459,48 +503,79 @@
       <!-- VIEW B: LIVE ACTIVE CHARGING SCREEN -->
       <!-- ============================================== -->
       <div id="activeChargingView" style="display: none;">
-        <div class="card" style="background: #111A2E; text-align: center; border: 2px solid var(--cyan-neon); box-shadow: 0 0 25px var(--cyan-glow);">
-          <div class="status-pill busy" style="margin-bottom: 16px;">
+        <div class="card" style="background: #111A2E; text-align: center; border: 2px solid var(--cyan-neon); box-shadow: 0 0 25px var(--cyan-glow); padding: 16px;">
+          <div class="status-pill busy" style="margin-bottom: 12px;">
             ⚡ PENGISIAN SEDANG BERLANGSUNG
           </div>
 
-          <!-- CIRCULAR BATTERY GAUGE -->
-          <div class="telemetry-dial" style="width: clamp(160px, 42vw, 190px); height: clamp(160px, 42vw, 190px);">
-            <div class="dial-value" id="driverLiveSoc">0%</div>
-            <div class="dial-unit" id="driverLiveWatt">0 W</div>
+          <div style="font-size: 0.82rem; color: #94A3B8; margin-bottom: 14px;">
+            <b id="activeChargingCarLabel" style="color: #fff;">Hyundai Ioniq 5 (B 1888 ION)</b>
           </div>
 
-          <!-- LIVE STATS -->
-          <div class="stat-grid" style="margin-bottom: 20px;">
-            <div class="stat-item">
-              <div class="label">Daya Masuk</div>
-              <div class="val" id="driverLiveMah">0 mAh</div>
+          <!-- CIRCULAR BATTERY GAUGE -->
+          <div class="telemetry-dial" style="width: clamp(160px, 40vw, 185px); height: clamp(160px, 40vw, 185px); margin: 0 auto 16px;">
+            <div class="dial-value" id="driverLiveSoc">0%</div>
+            <div class="dial-unit" id="driverLiveWatt">0.0 kW</div>
+          </div>
+
+          <!-- BATTERY TAPERING CURVE EDUCATIONAL BANNER -->
+          <div id="driverTaperingBanner" style="display: none; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; text-align: left; font-size: 0.76rem; color: #FCD34D; line-height: 1.4;">
+            💡 <b>Battery Health Protection:</b> Daya cas melambat otomatis di atas 80% untuk menjaga suhu sel kimia baterai mobil tetap awet.
+          </div>
+
+          <!-- LAYMAN TELEMETRY 2x2 GRID (CUSTOMER VALUE) -->
+          <div style="font-size: 0.72rem; color: #94A3B8; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; margin-bottom: 8px; text-align: left;">
+            💡 Wawasan Pengisian Ramah Pengguna:
+          </div>
+          <div class="layman-insights-grid">
+            <div class="layman-card">
+              <div class="layman-card-label">🚗 Jarak Tempuh</div>
+              <div class="layman-card-val" id="driverLiveKm">+0 KM</div>
+              <div class="layman-card-sub" id="driverLiveKmSub">Tambahan jangkauan</div>
             </div>
-            <div class="stat-item">
-              <div class="label">Biaya Terpakai</div>
-              <div class="val" style="color: #38BDF8;" id="driverLiveCost">Rp 0</div>
+            <div class="layman-card speed">
+              <div class="layman-card-label">⚡ Kecepatan Cas</div>
+              <div class="layman-card-val" id="driverLiveSpeed">+0.0 km/m</div>
+              <div class="layman-card-sub">Jarak tempuh per menit</div>
             </div>
-            <div class="stat-item">
-              <div class="label">Deposit Awal</div>
-              <div class="val" id="driverLiveDeposit">Rp 0</div>
+            <div class="layman-card savings">
+              <div class="layman-card-label">💰 Hemat vs Bensin</div>
+              <div class="layman-card-val" id="driverLiveSavings" style="color: #4ADE80;">Rp 0</div>
+              <div class="layman-card-sub" id="driverLiveSavingsSub">Hemat vs Pertamax (60%)</div>
             </div>
-            <div class="stat-item">
-              <div class="label">Sisa Refund</div>
-              <div class="val" style="color: #4ADE80;" id="driverLiveRemaining">Rp 0</div>
+            <div class="layman-card">
+              <div class="layman-card-label">⏱️ Sisa Waktu</div>
+              <div class="layman-card-val" id="driverLiveEta">0 Mnt</div>
+              <div class="layman-card-sub">Menuju target cas</div>
+            </div>
+          </div>
+
+          <!-- ENGINEERING TELEMETRY ROW -->
+          <div style="background: #0B101D; border-radius: 12px; padding: 12px; margin-bottom: 16px; border: 1px solid #1E293B; text-align: left;">
+            <div style="font-size: 0.68rem; color: #64748B; text-transform: uppercase; font-weight: 700; margin-bottom: 6px;">
+              📊 Data Listrik Teknik (Engineering Telemetry):
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.78rem;">
+              <div>Energi Terisi: <b id="driverLiveMah" style="color: #fff;">0.00 kWh</b></div>
+              <div>Daya Sesaat: <b id="driverLiveKwDetail" style="color: var(--cyan-neon);">0.0 kW</b></div>
+              <div>Tegangan / Arus: <b id="driverLiveVoltAmp" style="color: #CBD5E1;">0 V / 0 A</b></div>
+              <div>Biaya Terpakai: <b id="driverLiveCost" style="color: #38BDF8;">Rp 0</b></div>
+              <div>Sisa Saldo Deposit: <b id="driverLiveRemaining" style="color: #4ADE80;">Rp 0</b></div>
+              <div>Deposit Awal: <b id="driverLiveDeposit" style="color: #94A3B8;">Rp 0</b></div>
             </div>
           </div>
 
           <!-- BIG RED STOP BUTTON -->
           <button class="btn btn-danger btn-block" style="padding: 16px; font-size: 1rem; border-radius: 14px;" onclick="stopChargingProcess()">
-            🛑 BERHENTI SEKARANG (STOP & REFUND)
+            🛑 SELESAIKAN & CABUT KABEL (STOP & REFUND)
           </button>
           <div style="margin-top: 10px; display: flex; gap: 8px;">
             <button type="button" onclick="emergencyResetStation()" style="flex:1; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #FCA5A5; padding: 10px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer;">
-              🔄 Batalkan & Reset Sesi Ini
+              🔄 Reset Sesi Stasiun
             </button>
           </div>
           <p style="font-size: 0.72rem; color: #94A3B8; margin-top: 10px;">
-            Daya listrik akan segera diputus dan sisa saldo deposit akan langsung dikembalikan otomatis ke akun Anda.
+            Arus listrik akan segera diputus dan sisa deposit langsung dikembalikan secara otomatis.
           </p>
         </div>
       </div>
@@ -516,6 +591,55 @@
 </main> <!-- closes phone-mockup-wrapper -->
 
 </div> <!-- closes presentation-container -->
+
+  <!-- MODAL: HANDSHAKE PROTOKOL & AUTO-DETECT EV -->
+  <div class="modal-overlay" id="handshakeModal">
+    <div class="modal-box" style="border: 2px solid var(--cyan-neon); box-shadow: 0 0 35px var(--cyan-glow); max-width: 440px; text-align: left;">
+      <div style="text-align: center; margin-bottom: 16px;">
+        <div style="font-size: 2.2rem; margin-bottom: 4px;">🤝</div>
+        <h3 style="font-size: 1.15rem; color: #fff; font-weight: 800;">Protokol Handshake SPKLU</h3>
+        <p style="font-size: 0.76rem; color: #38BDF8;" id="handshakeSubtitle">Inisialisasi Standar ISO 15118 (Plug & Charge)</p>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <div class="handshake-step-item" id="hsStep1">
+          <div class="handshake-step-icon" id="hsIcon1">🔒</div>
+          <div style="flex: 1;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">1. Mechanical Locking</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc1">Mengunci pin nozzle ke port mobil...</div>
+          </div>
+        </div>
+
+        <div class="handshake-step-item" id="hsStep2">
+          <div class="handshake-step-icon" id="hsIcon2">🤝</div>
+          <div style="flex: 1;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">2. Komunikasi BMS & CAN-bus</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc2">Sinkronisasi parameter baterai mobil...</div>
+          </div>
+        </div>
+
+        <div class="handshake-step-item" id="hsStep3">
+          <div class="handshake-step-icon" id="hsIcon3">🚗</div>
+          <div style="flex: 1;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">3. Auto-Detect Identitas Mobil</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc3">Membaca VIN, kapasitas baterai & SoC...</div>
+          </div>
+        </div>
+
+        <div class="handshake-step-item" id="hsStep4">
+          <div class="handshake-step-icon" id="hsIcon4">⚡</div>
+          <div style="flex: 1;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">4. Uji Isolasi Keselamatan</div>
+            <div style="font-size: 0.72rem; color: #94A3B8;" id="hsDesc4">Uji keselamatan tegangan tinggi...</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="handshakeFooterMsg" style="background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: #38BDF8; text-align: center; font-weight: 600;">
+        ⏳ Menghubungkan komunikasi kendaraan...
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: QR SCANNER UNTUK NOZZLE -->
   <div class="modal-overlay" id="qrScannerModal">
@@ -565,8 +689,20 @@
           <span id="receiptSessionCode" style="font-weight:700; color:#fff; font-family:monospace;"></span>
         </div>
         <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
-          <span style="color:var(--text-muted);">Total Daya Masuk:</span>
-          <span id="receiptMah" style="font-weight:700; color:#fff;">0 mAh</span>
+          <span style="color:var(--text-muted);">Mobil Listrik:</span>
+          <span id="receiptCar" style="font-weight:700; color:#fff;">Hyundai Ioniq 5</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span style="color:var(--text-muted);">Total Energi Masuk:</span>
+          <span id="receiptKwh" style="font-weight:700; color:var(--cyan-neon);">0.00 kWh</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span style="color:var(--text-muted);">Jarak Tempuh Tambahan:</span>
+          <span id="receiptKm" style="font-weight:800; color:#4ADE80;">+0 KM</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+          <span style="color:var(--text-muted);">Hemat vs Bensin Pertamax:</span>
+          <span id="receiptSavings" style="font-weight:800; color:#FBBF24;">Hemat Rp 0</span>
         </div>
         <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
           <span style="color:var(--text-muted);">Biaya Aktual Terpakai:</span>
@@ -583,11 +719,11 @@
       </div>
 
       <p style="font-size:0.8rem; color:#94A3B8; text-align:center; margin-bottom:16px;">
-        ✅ Saldo refund telah berhasil dikembalikan ke dompet akun Anda secara otomatis.
+        ✅ Sisa saldo deposit telah dikembalikan otomatis ke akun Anda.
       </p>
 
       <button class="btn btn-primary btn-block" onclick="closeReceiptModal()">
-        Selesai & Cabut Kabel
+        Selesai & Cabut Nozzle
       </button>
     </div>
   </div>

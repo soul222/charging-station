@@ -19,6 +19,14 @@ def _migrate_db():
     if 'locked_by_user_id' not in columns:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE connectors ADD COLUMN locked_by_user_id INTEGER REFERENCES users(id)"))
+            
+    v_columns = [col['name'] for col in inspector.get_columns('vehicles')]
+    if 'efficiency_km_kwh' not in v_columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE vehicles ADD COLUMN efficiency_km_kwh FLOAT DEFAULT 6.8"))
+    if 'architecture_voltage' not in v_columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE vehicles ADD COLUMN architecture_voltage FLOAT DEFAULT 400.0"))
 
 _migrate_db()
 
@@ -99,18 +107,20 @@ def seed_initial_data():
             db.commit()
             db.refresh(user1)
 
-            # Smartphone vehicle
-            phone1 = models.Vehicle(
+            # Real Electric Vehicle (Hyundai Ioniq 5)
+            ev1 = models.Vehicle(
                 user_id=user1.id,
-                brand="Smartphone",
-                model="HP Anda (Baterai Asli Fisik)",
-                battery_capacity_kwh=0.02,
-                max_ac_kw=0.033,
-                max_dc_kw=0.065,
-                current_soc=45.0,
-                license_plate="HP-BUDI-01"
+                brand="Hyundai",
+                model="Ioniq 5 Long Range",
+                battery_capacity_kwh=72.6,
+                max_ac_kw=11.0,
+                max_dc_kw=220.0,
+                current_soc=28.0,
+                license_plate="B 1888 ION",
+                efficiency_km_kwh=6.6,
+                architecture_voltage=800.0
             )
-            db.add(phone1)
+            db.add(ev1)
 
             # RFID Cards
             rfid1 = models.RFIDCard(
@@ -145,15 +155,17 @@ def seed_initial_data():
             db.commit()
             db.refresh(user2)
 
-            phone2 = models.Vehicle(
+            ev2 = models.Vehicle(
                 user_id=user2.id,
-                brand="Smartphone",
-                model="HP Siti (Baterai Fisik)",
-                battery_capacity_kwh=0.02,
-                max_ac_kw=0.033,
-                max_dc_kw=0.065,
-                current_soc=55.0,
-                license_plate="HP-SITI-02"
+                brand="Wuling",
+                model="Binguo EV Max",
+                battery_capacity_kwh=31.9,
+                max_ac_kw=7.0,
+                max_dc_kw=50.0,
+                current_soc=35.0,
+                license_plate="B 2468 WLG",
+                efficiency_km_kwh=10.4,
+                architecture_voltage=400.0
             )
             rfid_siti = models.RFIDCard(
                 user_id=user2.id,
@@ -162,7 +174,7 @@ def seed_initial_data():
                 balance=125000.0,
                 card_type="Flazz BCA"
             )
-            db.add_all([phone2, rfid_siti])
+            db.add_all([ev2, rfid_siti])
             db.commit()
 
         # Seed Admin / Operator
@@ -179,21 +191,20 @@ def seed_initial_data():
             db.add(admin)
             db.commit()
 
-        # Ensure Smartphone vehicle exists for user1 if missing
-        if user1:
-            p = db.query(models.Vehicle).filter(models.Vehicle.user_id == user1.id, models.Vehicle.brand == "Smartphone").first()
-            if not p:
-                db.add(models.Vehicle(
-                    user_id=user1.id,
-                    brand="Smartphone",
-                    model="HP Anda (Baterai Asli Fisik)",
-                    battery_capacity_kwh=0.02,
-                    max_ac_kw=0.033,
-                    max_dc_kw=0.065,
-                    current_soc=45.0,
-                    license_plate="HP-BUDI-01"
-                ))
-                db.commit()
+        # Migrate existing smartphone vehicles to real EV if exists
+        old_phones = db.query(models.Vehicle).filter(models.Vehicle.battery_capacity_kwh <= 0.1).all()
+        for op in old_phones:
+            op.brand = "Hyundai"
+            op.model = "Ioniq 5 Long Range"
+            op.battery_capacity_kwh = 72.6
+            op.max_ac_kw = 11.0
+            op.max_dc_kw = 220.0
+            op.current_soc = 28.0
+            op.license_plate = "B 1888 ION"
+            op.efficiency_km_kwh = 6.6
+            op.architecture_voltage = 800.0
+        if old_phones:
+            db.commit()
     finally:
         db.close()
 

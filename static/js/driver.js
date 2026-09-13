@@ -296,7 +296,7 @@ function restoreActiveSessionView(sessionData) {
   selectedConnector = stationConnectors.find(c => c.id === sessionData.connector_id) || {
     id: sessionData.connector_id,
     name: sessionData.connector_name,
-    max_power_kw: (sessionData.current_power_w / 1000) || 22.0
+    max_power_kw: sessionData.current_power_kw || 22.0
   };
 
   // Hide wizard and steps
@@ -308,18 +308,41 @@ function restoreActiveSessionView(sessionData) {
   // Show active view
   document.getElementById("activeChargingView").style.display = "block";
 
+  const carLabel = document.getElementById("activeChargingCarLabel");
+  if (carLabel && selectedVehicle) {
+    carLabel.innerText = `${selectedVehicle.brand} ${selectedVehicle.model} (${selectedVehicle.license_plate})`;
+  }
+
   // Populate live stats
   document.getElementById("driverLiveSoc").innerText = `${sessionData.current_soc.toFixed(1)}%`;
+  const kw = sessionData.current_power_kw ? sessionData.current_power_kw.toFixed(1) : (sessionData.current_power_w ? (sessionData.current_power_w / 1000).toFixed(1) : "0.0");
   const wattElem = document.getElementById("driverLiveWatt") || document.getElementById("driverLiveKw");
-  if (wattElem) {
-    const liveW = sessionData.current_power_w !== undefined ? sessionData.current_power_w : ((sessionData.current_power_kw || 0.033) * 1000);
-    wattElem.innerText = `${liveW.toFixed(1)} W`;
-  }
+  if (wattElem) wattElem.innerText = `${kw} kW`;
+
+  const detailKw = document.getElementById("driverLiveKwDetail");
+  if (detailKw) detailKw.innerText = `${kw} kW`;
+
   const mahElem = document.getElementById("driverLiveMah") || document.getElementById("driverLiveKwh");
-  if (mahElem) mahElem.innerText = `${(sessionData.energy_delivered_mah || 0).toLocaleString('id-ID')} mAh`;
-  document.getElementById("driverLiveCost").innerText = `Rp ${sessionData.current_cost.toLocaleString('id-ID')}`;
-  document.getElementById("driverLiveRemaining").innerText = `Rp ${sessionData.remaining_deposit.toLocaleString('id-ID')}`;
-  document.getElementById("driverLiveDeposit").innerText = `Rp ${sessionData.deposit_paid.toLocaleString('id-ID')}`;
+  if (mahElem) mahElem.innerText = `${(sessionData.energy_delivered_kwh || 0).toFixed(2)} kWh`;
+
+  document.getElementById("driverLiveCost").innerText = `Rp ${Math.round(sessionData.current_cost || 0).toLocaleString('id-ID')}`;
+  document.getElementById("driverLiveRemaining").innerText = `Rp ${Math.round(sessionData.remaining_deposit || 0).toLocaleString('id-ID')}`;
+  document.getElementById("driverLiveDeposit").innerText = `Rp ${Math.round(sessionData.deposit_paid || 0).toLocaleString('id-ID')}`;
+
+  // Layman cards
+  const kmElem = document.getElementById("driverLiveKm");
+  if (kmElem) kmElem.innerText = `+${sessionData.km_added || 0} KM`;
+  const speedElem = document.getElementById("driverLiveSpeed");
+  if (speedElem) speedElem.innerText = `+${(sessionData.charging_speed_km_per_min || 0).toFixed(1)} km/m`;
+  const savingsElem = document.getElementById("driverLiveSavings");
+  if (savingsElem) savingsElem.innerText = `Rp ${Math.round(sessionData.money_saved_petrol || 0).toLocaleString('id-ID')}`;
+  const etaElem = document.getElementById("driverLiveEta");
+  if (etaElem) etaElem.innerText = `${sessionData.eta_minutes || 0} Mnt`;
+
+  const taperBanner = document.getElementById("driverTaperingBanner");
+  if (taperBanner) {
+    taperBanner.style.display = sessionData.is_tapering ? "block" : "none";
+  }
 }
 
 // -------------------------------------------------------------
@@ -453,71 +476,74 @@ function cancelPendingNozzle() {
   }
 }
 
-async function handleScannedNozzle(nozzleNumber) {
+async function triggerSimulatedPlug(nozzleNumber) {
   await closeQrScannerModal();
+  await loadStationData();
 
-  // Clear query params immediately so reloads don't re-trigger unexpectedly
+  const target = stationConnectors.find(c => c.connector_number === nozzleNumber || c.id === nozzleNumber);
+  if (!target) {
+    await showAppAlert(`Nozzle #${nozzleNumber} tidak ditemukan di stasiun!`, { title: "Error", type: "error" });
+    return;
+  }
+  if (target.status === "CHARGING") {
+    await showAppAlert(`${target.name} sedang dalam sesi pengisian aktif!`, { title: "Nozzle Sedang Digunakan", type: "warning" });
+    return;
+  }
+  if (target.locked_by_user_id && target.locked_by_user_id !== USER_ID) {
+    await showAppAlert(`${target.name} sedang diklaim oleh pengguna lain!`, { title: "Nozzle Diklaim", type: "warning" });
+    return;
+  }
+
+  selectedConnector = target;
+  openHandshakeModal(target);
+
+  try {
+    const res = await fetch(`/api/station/connector/${target.id}/plug`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: USER_ID })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      closeHandshakeModal();
+      await showAppAlert(err.detail || "Gagal inisialisasi nozzle!", { title: "Gagal Inisialisasi", type: "error" });
+    }
+  } catch (err) {
+    closeHandshakeModal();
+    await showAppAlert("Koneksi gagal saat handshake: " + err, { title: "Koneksi Error", type: "error" });
+  }
+}
+
+function openHandshakeModal(connector) {
+  const modal = document.getElementById("handshakeModal");
+  if (!modal) return;
+
+  for (let i = 1; i <= 4; i++) {
+    const s = document.getElementById(`hsStep${i}`);
+    if (s) s.className = "handshake-step-item";
+  }
+  const s1 = document.getElementById("hsStep1");
+  if (s1) s1.className = "handshake-step-item active";
+
+  const sub = document.getElementById("handshakeSubtitle");
+  if (sub) sub.innerText = `Menghubungkan ${connector.name}...`;
+
+  const msg = document.getElementById("handshakeFooterMsg");
+  if (msg) msg.innerText = "⏳ Motor aktuator sedang mengunci pin nozzle ke port mobil...";
+
+  modal.classList.add("open");
+}
+
+function closeHandshakeModal() {
+  const modal = document.getElementById("handshakeModal");
+  if (modal) modal.classList.remove("open");
+}
+
+async function handleScannedNozzle(nozzleNumber) {
   if (window.location.search) {
     window.history.replaceState({}, document.title, window.location.pathname);
   }
-
-  // Fetch fresh station state from server
-  await loadStationData();
-
-  // Find matching connector in station
-  const target = stationConnectors.find(c => c.connector_number === nozzleNumber || c.id === nozzleNumber);
-  if (!target) {
-    await showAppAlert(`Nozzle #${nozzleNumber} tidak ditemukan di stasiun ini!`, {
-      title: "Nozzle Tidak Ditemukan",
-      type: "error"
-    });
-    return;
-  }
-
-  // Guard: if nozzle is currently in an active charging session
-  if (target.status === "CHARGING") {
-    await showAppAlert(`${target.name} saat ini sedang digunakan untuk pengisian daya!\nSilakan gunakan nozzle lain yang tersedia.`, {
-      title: "Nozzle Sedang Mengisi",
-      type: "warning"
-    });
-    return;
-  }
-
-  // Guard: if nozzle is locked/claimed by another driver
-  if (target.locked_by_user_id && target.locked_by_user_id !== USER_ID) {
-    await showAppAlert(`${target.name} sedang diklaim atau digunakan oleh pengguna lain!\nSilakan scan nozzle lain yang masih tersedia.`, {
-      title: "Nozzle Sedang Diklaim",
-      type: "warning"
-    });
-    return;
-  }
-
-  // Check physical connection status
-  if (target.status === "AVAILABLE") {
-    // Enter pending nozzle waiting state (regardless of whether another port is plugged or not)
-    selectedConnector = null;
-    pendingNozzleConnector = target;
-    showPendingNozzleUI(target);
-    await showAppAlert(
-      `Silakan hubungkan kabel ${target.name} ke HP Anda.\n\nSistem akan otomatis melanjutkan ke Target Cas begitu kabel ${target.name} terhubung.`,
-      {
-        title: "Hubungkan Kabel Nozzle",
-        subtitle: `🔌 ${target.name}`,
-        type: "info",
-        confirmText: "Mengerti"
-      }
-    );
-    goToStep(1);
-    return;
-  }
-
-  // Cable already plugged into target nozzle (CONNECTED) -> claim nozzle exclusively and jump directly to Step 2 (Target Cas)!
-  cancelPendingNozzle();
-  selectedConnector = target;
-  const claimSuccess = await claimNozzle(target.id, true);
-  if (claimSuccess) {
-    goToStep(2);
-  }
+  await triggerSimulatedPlug(nozzleNumber);
 }
 
 // Nozzle Claim & Exclusivity Helpers
@@ -694,8 +720,8 @@ async function loadUserData() {
       headerRole.className = currentUser.role === "OPERATOR" ? "status-pill busy" : "status-pill online";
     }
 
-    // Auto-select Smartphone Vehicle (No car dropdown)
-    selectedVehicle = userVehicles.find(v => v.brand === "Smartphone") || userVehicles[0];
+    // Auto-select Real EV or user's active vehicle
+    selectedVehicle = userVehicles[0];
     if (selectedVehicle) {
       updateCarDisplay();
     }
@@ -708,18 +734,22 @@ async function loadUserData() {
 
 function updateCarDisplay() {
   if (!selectedVehicle) return;
-  const soc = selectedVehicle.current_soc;
-  const currentMah = Math.round((soc / 100) * TOTAL_PHONE_BATTERY_MAH);
-  const remainingMah = Math.max(0, TOTAL_PHONE_BATTERY_MAH - currentMah);
+  const soc = selectedVehicle.current_soc || 28.0;
+  const cap = selectedVehicle.battery_capacity_kwh || 72.6;
+  const efficiency = selectedVehicle.efficiency_km_kwh || 6.8;
+  const arch = selectedVehicle.architecture_voltage || 400.0;
+  const currentKwh = ((soc / 100) * cap).toFixed(1);
+  const remainingKwh = Math.max(0, cap - ((soc / 100) * cap)).toFixed(1);
 
-  const labelElem = document.getElementById("batteryLabelText");
-  if (labelElem) {
-    labelElem.innerText = "📱 Baterai HP Fisik (ADB)";
-  }
+  const carNameElem = document.getElementById("driverCarName");
+  if (carNameElem) carNameElem.innerText = `${selectedVehicle.brand} ${selectedVehicle.model}`;
+
+  const carSpecsElem = document.getElementById("driverCarSpecs");
+  if (carSpecsElem) carSpecsElem.innerText = `Plat: ${selectedVehicle.license_plate} • Baterai: ${cap} kWh • Arsitektur ${Math.round(arch)}V`;
 
   const statusElem = document.getElementById("carBatteryStatus");
   if (statusElem) {
-    statusElem.innerText = `${soc}% (${currentMah.toLocaleString('id-ID')} / ${TOTAL_PHONE_BATTERY_MAH.toLocaleString('id-ID')} mAh)`;
+    statusElem.innerText = `${soc.toFixed(1)}% (${currentKwh} / ${cap} kWh)`;
   }
 
   const barElem = document.getElementById("carBatteryBar");
@@ -727,58 +757,46 @@ function updateCarDisplay() {
     barElem.style.width = `${soc}%`;
   }
 
-  // Update max input attribute and hint for manual mAh input based on remaining power
-  const inputElem = document.getElementById("inputManualMah") || document.getElementById("inputManualKwh");
-  const hintElem = document.getElementById("maxManualMahHint");
+  const inputElem = document.getElementById("inputManualKwh");
+  const hintElem = document.getElementById("maxManualKwhHint");
   if (inputElem) {
-    inputElem.max = remainingMah;
-    const currentVal = parseInt(inputElem.value) || 0;
-    if (currentVal > remainingMah || currentVal === 15 || currentVal === 0) {
-      inputElem.value = Math.min(1000, remainingMah);
+    inputElem.max = Math.ceil(remainingKwh);
+    const curVal = parseFloat(inputElem.value) || 0;
+    if (curVal > remainingKwh || curVal <= 0) {
+      inputElem.value = Math.min(20, Math.ceil(remainingKwh));
     }
   }
   if (hintElem) {
-    hintElem.innerText = `Max: ${remainingMah.toLocaleString('id-ID')} mAh`;
+    hintElem.innerText = `Max: ${remainingKwh} kWh`;
   }
 
-  // Update target summary in Step 2 if open
   const targetDesc = document.getElementById("targetModeSummary");
   if (targetDesc) {
-    if (targetMode === 'FULL') {
-      targetDesc.innerText = `🎯 Mengisi baterai HP dari ${soc}% menuju 100% penuh (+${remainingMah.toLocaleString('id-ID')} mAh)`;
+    if (targetMode === 'FULL_80') {
+      const neededKwh = Math.max(0, (0.80 - (soc / 100)) * cap).toFixed(1);
+      targetDesc.innerText = `🎯 Cas hingga batas 80% (+${neededKwh} kWh). Rekomendasi pabrikan EV untuk menjaga keawetan sel baterai.`;
+    } else if (targetMode === 'FULL_100') {
+      targetDesc.innerText = `🎯 Cas hingga 100% penuh (+${remainingKwh} kWh). Cocok untuk persiapan perjalanan jarak jauh.`;
     } else {
-      const manualVal = parseInt((document.getElementById("inputManualMah") || document.getElementById("inputManualKwh"))?.value) || 1000;
-      const targetSoc = Math.min(100, Math.round(soc + (manualVal / TOTAL_PHONE_BATTERY_MAH * 100)));
-      targetDesc.innerText = `🎯 Target manual: +${manualVal.toLocaleString('id-ID')} mAh (Baterai akan menjadi ${targetSoc}%)`;
+      const val = parseFloat(inputElem?.value) || 15;
+      const targetSoc = Math.min(100, Math.round(soc + (val / cap * 100)));
+      targetDesc.innerText = `🎯 Target manual: +${val} kWh (Baterai akan terisi menjadi ~${targetSoc}%)`;
     }
   }
 
   if (currentStep === 2) updateEstimate();
 }
 
-function onManualMahChanged() {
-  const soc = selectedVehicle ? selectedVehicle.current_soc : 50;
-  const currentMah = Math.round((soc / 100) * TOTAL_PHONE_BATTERY_MAH);
-  const remainingMah = Math.max(0, TOTAL_PHONE_BATTERY_MAH - currentMah);
-  const inputElem = document.getElementById("inputManualMah") || document.getElementById("inputManualKwh");
-  const warnElem = document.getElementById("manualMahWarning");
+function onManualKwhChanged() {
+  updateCarDisplay();
+}
 
-  let val = parseInt(inputElem.value) || 0;
-  if (val > remainingMah) {
-    val = remainingMah;
-    inputElem.value = remainingMah;
-    if (warnElem) warnElem.style.display = "block";
-  } else {
-    if (warnElem) warnElem.style.display = "none";
+function quickSetKwh(amount) {
+  const inputElem = document.getElementById("inputManualKwh");
+  if (inputElem) {
+    inputElem.value = amount;
+    updateCarDisplay();
   }
-
-  const targetDesc = document.getElementById("targetModeSummary");
-  if (targetDesc && targetMode !== 'FULL') {
-    const targetSoc = Math.min(100, Math.round(soc + (val / TOTAL_PHONE_BATTERY_MAH * 100)));
-    targetDesc.innerText = `🎯 Target manual: +${val.toLocaleString('id-ID')} mAh (Baterai akan menjadi ${targetSoc}%)`;
-  }
-
-  updateEstimate();
 }
 
 function renderEmoneyCards() {
@@ -954,20 +972,44 @@ async function autoHandleUsbUnplugged() {
 
 // Target Mode & Estimate
 function selectTargetMode(mode) {
-  targetMode = (mode === 'MANUAL_MAH' || mode === 'MANUAL_KWH') ? 'MANUAL_MAH' : 'FULL';
-  document.getElementById("tabFull").className = `tab-btn ${targetMode === 'FULL' ? 'active' : ''}`;
-  document.getElementById("tabManual").className = `tab-btn ${targetMode === 'MANUAL_MAH' ? 'active' : ''}`;
-  const box = document.getElementById("manualMahBox") || document.getElementById("manualKwhBox");
-  if (box) box.style.display = targetMode === 'MANUAL_MAH' ? 'block' : 'none';
+  targetMode = mode;
+  const tab80 = document.getElementById("tabFull80");
+  const tab100 = document.getElementById("tabFull100");
+  const tabMan = document.getElementById("tabManualKwh");
+
+  if (tab80) tab80.className = `tab-btn ${mode === 'FULL_80' ? 'active' : ''}`;
+  if (tab100) tab100.className = `tab-btn ${mode === 'FULL_100' ? 'active' : ''}`;
+  if (tabMan) tabMan.className = `tab-btn ${mode === 'MANUAL_KWH' ? 'active' : ''}`;
+
+  const box = document.getElementById("manualKwhBox");
+  if (box) box.style.display = mode === 'MANUAL_KWH' ? 'block' : 'none';
+
   updateCarDisplay();
-  updateEstimate();
 }
 
 async function updateEstimate() {
   if (!selectedVehicle || !selectedConnector) return;
 
-  const manualMah = parseInt((document.getElementById("inputManualMah") || document.getElementById("inputManualKwh"))?.value) || 1000;
-  const manualKwh = (manualMah / TOTAL_PHONE_BATTERY_MAH) * 0.02;
+  const cap = selectedVehicle.battery_capacity_kwh || 72.6;
+  const efficiency = selectedVehicle.efficiency_km_kwh || 6.8;
+  const tariff = selectedConnector.tariff_per_kwh || 3000.0;
+  const soc = selectedVehicle.current_soc || 28.0;
+
+  let targetSoc = 100.0;
+  let targetType = "FULL";
+  let manualKwh = 15.0;
+
+  if (targetMode === "FULL_80") {
+    targetSoc = 80.0;
+    targetType = "FULL";
+  } else if (targetMode === "FULL_100") {
+    targetSoc = 100.0;
+    targetType = "FULL";
+  } else {
+    targetType = "MANUAL_KWH";
+    const inputElem = document.getElementById("inputManualKwh");
+    manualKwh = parseFloat(inputElem?.value) || 15.0;
+  }
 
   try {
     const res = await fetch("/api/station/estimate", {
@@ -976,18 +1018,26 @@ async function updateEstimate() {
       body: JSON.stringify({
         vehicle_id: selectedVehicle.id,
         connector_id: selectedConnector.id,
-        target_type: targetMode === 'MANUAL_MAH' ? 'MANUAL_KWH' : targetMode,
+        target_type: targetType,
         manual_kwh: manualKwh,
-        manual_mah: manualMah,
-        custom_target_soc: 100.0
+        custom_target_soc: targetSoc
       })
     });
 
     currentEstimate = await res.json();
 
-    const neededMah = currentEstimate.energy_needed_mah || Math.round((currentEstimate.energy_needed_kwh / 0.02) * TOTAL_PHONE_BATTERY_MAH);
-    document.getElementById("estEnergy").innerText = `${neededMah.toLocaleString('id-ID')} mAh`;
-    document.getElementById("estTariff").innerText = `Rp ${currentEstimate.tariff_per_kwh.toLocaleString('id-ID')} / 500 mAh`;
+    const neededKwh = currentEstimate.energy_needed_kwh.toFixed(1);
+    const addedKm = Math.round(currentEstimate.energy_needed_kwh * efficiency);
+    const petrolLiters = (addedKm / 12.0);
+    const petrolCost = Math.round(petrolLiters * 13700);
+    const savings = Math.max(0, petrolCost - currentEstimate.estimated_cost);
+
+    document.getElementById("estEnergy").innerText = `${neededKwh} kWh`;
+    const estKmElem = document.getElementById("estKm");
+    if (estKmElem) estKmElem.innerText = `+${addedKm} KM Jangkauan`;
+    document.getElementById("estTariff").innerText = `Rp ${currentEstimate.tariff_per_kwh.toLocaleString('id-ID')} / kWh`;
+    const estSavElem = document.getElementById("estSavings");
+    if (estSavElem) estSavElem.innerText = `Hemat Rp ${savings.toLocaleString('id-ID')} vs Pertamax (Hemat 60%)`;
     document.getElementById("estDuration").innerText = `${currentEstimate.estimated_duration_minutes} Menit`;
     document.getElementById("estTotalDeposit").innerText = `Rp ${currentEstimate.estimated_cost.toLocaleString('id-ID')}`;
     document.getElementById("qrisAmountText").innerText = `Rp ${currentEstimate.estimated_cost.toLocaleString('id-ID')}`;
@@ -1135,18 +1185,30 @@ async function startChargingProcess() {
 }
 
 async function executeStartCharging(cardUid) {
-  const manualMah = parseInt((document.getElementById("inputManualMah") || document.getElementById("inputManualKwh"))?.value) || 1000;
-  const manualKwh = (manualMah / TOTAL_PHONE_BATTERY_MAH) * 0.02;
+  let manualKwh = 15.0;
+  let targetSoc = 100.0;
+  let targetType = "FULL";
+
+  if (targetMode === "FULL_80") {
+    targetType = "FULL";
+    targetSoc = 80.0;
+  } else if (targetMode === "FULL_100") {
+    targetType = "FULL";
+    targetSoc = 100.0;
+  } else {
+    targetType = "MANUAL_KWH";
+    const input = document.getElementById("inputManualKwh");
+    manualKwh = parseFloat(input?.value) || 15.0;
+  }
 
   const payload = {
     user_id: USER_ID,
     station_code: STATION_CODE,
     connector_id: selectedConnector.id,
     vehicle_id: selectedVehicle.id,
-    target_type: targetMode === 'MANUAL_MAH' ? 'MANUAL_KWH' : targetMode,
+    target_type: targetType,
     manual_kwh: manualKwh,
-    manual_mah: manualMah,
-    target_soc: 100.0,
+    target_soc: targetSoc,
     payment_method: paymentMethod,
     card_uid: cardUid
   };
@@ -1176,6 +1238,11 @@ async function executeStartCharging(cardUid) {
     document.getElementById("step3View").style.display = "none";
     document.getElementById("wizardStepHeader").style.display = "none";
     document.getElementById("activeChargingView").style.display = "block";
+
+    const carLabel = document.getElementById("activeChargingCarLabel");
+    if (carLabel && selectedVehicle) {
+      carLabel.innerText = `${selectedVehicle.brand} ${selectedVehicle.model} (${selectedVehicle.license_plate})`;
+    }
 
     document.getElementById("driverLiveDeposit").innerText = `Rp ${result.deposit_paid.toLocaleString('id-ID')}`;
 
@@ -1213,15 +1280,19 @@ async function stopChargingProcess() {
     const data = await res.json();
     activeSessionId = null;
 
-    const totalMah = Math.round((data.energy_delivered_kwh / 0.02) * TOTAL_PHONE_BATTERY_MAH);
-
-    // Show Receipt Modal
+    // Show Receipt Modal with Real EV Layman Metrics
     document.getElementById("receiptSessionCode").innerText = `#CS-${Date.now().toString().slice(-6)}`;
-    const receiptElem = document.getElementById("receiptMah") || document.getElementById("receiptKwh");
-    if (receiptElem) receiptElem.innerText = `${totalMah.toLocaleString('id-ID')} mAh`;
-    document.getElementById("receiptActualCost").innerText = `Rp ${data.actual_cost.toLocaleString('id-ID')}`;
+    const carElem = document.getElementById("receiptCar");
+    if (carElem) carElem.innerText = `${data.car_model || (selectedVehicle ? (selectedVehicle.brand + ' ' + selectedVehicle.model) : 'Real EV')}`;
+    const receiptElem = document.getElementById("receiptKwh") || document.getElementById("receiptMah");
+    if (receiptElem) receiptElem.innerText = `${(data.total_energy_kwh || 0).toFixed(2)} kWh`;
+    const rcptKm = document.getElementById("receiptKm");
+    if (rcptKm) rcptKm.innerText = `+${data.km_added || 0} KM`;
+    const rcptSav = document.getElementById("receiptSavings");
+    if (rcptSav) rcptSav.innerText = `Hemat Rp ${(data.money_saved_petrol || 0).toLocaleString('id-ID')} (${data.savings_percentage || 60}%)`;
+    document.getElementById("receiptActualCost").innerText = `Rp ${Math.round(data.actual_cost || 0).toLocaleString('id-ID')}`;
     document.getElementById("receiptDepositPaid").innerText = document.getElementById("driverLiveDeposit").innerText;
-    document.getElementById("receiptRefundAmount").innerText = `Rp ${data.refund_amount.toLocaleString('id-ID')}`;
+    document.getElementById("receiptRefundAmount").innerText = `Rp ${Math.round(data.refund_amount || 0).toLocaleString('id-ID')}`;
 
     document.getElementById("receiptModal").classList.add("open");
 
@@ -1284,7 +1355,62 @@ function setupWebSocket() {
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
-    if (data.event === "PORT_NOZZLE_CONNECTED") {
+    if (data.event === "HANDSHAKE_STAGE") {
+      const stage = data.stage;
+      for (let i = 1; i <= 4; i++) {
+        const stepEl = document.getElementById(`hsStep${i}`);
+        if (!stepEl) continue;
+        if (i < stage) {
+          stepEl.className = "handshake-step-item done";
+        } else if (i === stage) {
+          stepEl.className = "handshake-step-item active";
+        } else {
+          stepEl.className = "handshake-step-item";
+        }
+      }
+      const footerMsg = document.getElementById("handshakeFooterMsg");
+      if (footerMsg && data.message) {
+        footerMsg.innerText = `⏳ ${data.message}`;
+      }
+      if (data.vehicle) {
+        selectedVehicle = data.vehicle;
+        const desc3 = document.getElementById("hsDesc3");
+        if (desc3) {
+          desc3.innerHTML = `Terdeteksi: <b style="color:#00F0FF;">${data.vehicle.brand} ${data.vehicle.model}</b> (${data.vehicle.license_plate})`;
+        }
+        updateCarDisplay();
+      }
+    } else if (data.event === "HANDSHAKE_COMPLETE") {
+      for (let i = 1; i <= 4; i++) {
+        const stepEl = document.getElementById(`hsStep${i}`);
+        if (stepEl) stepEl.className = "handshake-step-item done";
+      }
+      const footerMsg = document.getElementById("handshakeFooterMsg");
+      if (footerMsg) {
+        footerMsg.innerHTML = "✅ <b>Handshake Sukses!</b> Parameter kendaraan terverifikasi ISO 15118.";
+      }
+      if (data.vehicle) {
+        selectedVehicle = data.vehicle;
+        updateCarDisplay();
+      }
+      setTimeout(async () => {
+        closeHandshakeModal();
+        const matched = stationConnectors.find(c => c.id === data.connector_id) || selectedConnector;
+        if (matched) {
+          selectedConnector = matched;
+          const claimed = await claimNozzle(matched.id, true);
+          if (claimed) {
+            goToStep(2);
+            showAppAlert(`Kabel ${matched.name} berhasil terhubung!\nKendaraan: ${selectedVehicle ? (selectedVehicle.brand + ' ' + selectedVehicle.model) : 'EV'}\nMelanjutkan ke Target Cas...`, {
+              title: "Handshake Sukses!",
+              subtitle: `🚗 ${selectedVehicle ? selectedVehicle.model : 'Real EV'} • 🔌 ${matched.name}`,
+              type: "success"
+            });
+          }
+        }
+        loadStationData();
+      }, 700);
+    } else if (data.event === "PORT_NOZZLE_CONNECTED") {
       isPlugged = true;
       if (!activeSessionId) {
         const target = stationConnectors.find(c => c.id === data.connector_id);
@@ -1292,7 +1418,6 @@ function setupWebSocket() {
         // CASE A: User is on Step 1 waiting for this pending nozzle!
         if (currentStep === 1 && pendingNozzleConnector) {
           if (pendingNozzleConnector.id === data.connector_id) {
-            // MATCH! The expected nozzle was plugged in!
             const matched = target || pendingNozzleConnector;
             cancelPendingNozzle();
             selectedConnector = matched;
@@ -1309,15 +1434,11 @@ function setupWebSocket() {
             loadStationData();
             return;
           } else {
-            // MISMATCH in real-time: Driver is waiting for pendingNozzleConnector, but another port was plugged!
-            // STRICT ANTI-DISTRACTION: Stay on Step 1, DO NOT advance to Step 2!
-            // Keep UI completely clean and calm: stay in the pending waiting state without noisy warning text!
             loadStationData();
             return;
           }
         }
 
-        // Only sync if selectedConnector was ALREADY set to this nozzle (prevents hijacking)
         if (target && selectedConnector && selectedConnector.id === target.id) {
           selectedConnector = target;
         }
@@ -1356,25 +1477,62 @@ function setupWebSocket() {
       }
     } else if (data.event === "TELEMETRY_UPDATE" && activeSessionId === data.session_id) {
       document.getElementById("driverLiveSoc").innerText = `${data.current_soc.toFixed(1)}%`;
-      const watts = data.current_power_w ? data.current_power_w.toFixed(1) : (data.current_power_kw ? (data.current_power_kw * 1000).toFixed(1) : "33.0");
+      const kw = data.current_power_kw ? data.current_power_kw.toFixed(1) : (data.current_power_w ? (data.current_power_w / 1000).toFixed(1) : "0.0");
       const wattElem = document.getElementById("driverLiveWatt") || document.getElementById("driverLiveKw");
-      if (wattElem) wattElem.innerText = `${watts} W`;
-      const deliveredMah = data.energy_delivered_mah || Math.round((data.energy_delivered_kwh / 0.02) * TOTAL_PHONE_BATTERY_MAH);
+      if (wattElem) wattElem.innerText = `${kw} kW`;
+
+      const detailKw = document.getElementById("driverLiveKwDetail");
+      if (detailKw) detailKw.innerText = `${kw} kW`;
+
+      const volt = data.voltage_v ? Math.round(data.voltage_v) : (data.voltage || 400);
+      const amps = data.current_a ? data.current_a.toFixed(1) : (data.current_amps ? data.current_amps.toFixed(1) : "0.0");
+      const voltAmp = document.getElementById("driverLiveVoltAmp");
+      if (voltAmp) voltAmp.innerText = `${volt} V / ${amps} A`;
+
+      const kwh = data.energy_delivered_kwh !== undefined ? data.energy_delivered_kwh.toFixed(2) : "0.00";
       const mahElem = document.getElementById("driverLiveMah") || document.getElementById("driverLiveKwh");
-      if (mahElem) mahElem.innerText = `${deliveredMah.toLocaleString('id-ID')} mAh`;
-      document.getElementById("driverLiveCost").innerText = `Rp ${data.current_cost.toLocaleString('id-ID')}`;
-      document.getElementById("driverLiveRemaining").innerText = `Rp ${data.remaining_deposit.toLocaleString('id-ID')}`;
+      if (mahElem) mahElem.innerText = `${kwh} kWh`;
+
+      document.getElementById("driverLiveCost").innerText = `Rp ${Math.round(data.current_cost || 0).toLocaleString('id-ID')}`;
+      document.getElementById("driverLiveRemaining").innerText = `Rp ${Math.round(data.remaining_deposit || 0).toLocaleString('id-ID')}`;
+
+      // Layman telemetry cards
+      const kmElem = document.getElementById("driverLiveKm");
+      if (kmElem) kmElem.innerText = `+${data.km_added || 0} KM`;
+
+      const speedElem = document.getElementById("driverLiveSpeed");
+      if (speedElem) speedElem.innerText = `+${(data.charging_speed_km_per_min || 0).toFixed(1)} km/m`;
+
+      const savingsElem = document.getElementById("driverLiveSavings");
+      if (savingsElem) savingsElem.innerText = `Rp ${Math.round(data.money_saved_petrol || 0).toLocaleString('id-ID')}`;
+
+      const savingsSub = document.getElementById("driverLiveSavingsSub");
+      if (savingsSub) savingsSub.innerText = `Hemat ${data.savings_percentage || 60}% vs Pertamax`;
+
+      const etaElem = document.getElementById("driverLiveEta");
+      if (etaElem) etaElem.innerText = `${data.eta_minutes || 0} Mnt`;
+
+      // Battery tapering warning banner (SoC >= 80%)
+      const taperBanner = document.getElementById("driverTaperingBanner");
+      if (taperBanner) {
+        taperBanner.style.display = data.is_tapering ? "block" : "none";
+      }
     } else if (data.event === "SESSION_COMPLETED") {
       loadStationData();
       if (activeSessionId === data.session_id) {
         activeSessionId = null;
-        const totalMah = data.total_energy_mah || Math.round((data.total_energy_kwh / 0.02) * TOTAL_PHONE_BATTERY_MAH);
         document.getElementById("receiptSessionCode").innerText = `#${data.session_code}`;
-        const receiptElem = document.getElementById("receiptMah") || document.getElementById("receiptKwh");
-        if (receiptElem) receiptElem.innerText = `${totalMah.toLocaleString('id-ID')} mAh`;
-        document.getElementById("receiptActualCost").innerText = `Rp ${data.actual_cost.toLocaleString('id-ID')}`;
-        document.getElementById("receiptDepositPaid").innerText = `Rp ${data.deposit_paid.toLocaleString('id-ID')}`;
-        document.getElementById("receiptRefundAmount").innerText = `Rp ${data.refund_amount.toLocaleString('id-ID')}`;
+        const carElem = document.getElementById("receiptCar");
+        if (carElem) carElem.innerText = `${data.car_model || (selectedVehicle ? (selectedVehicle.brand + ' ' + selectedVehicle.model) : 'Real EV')}`;
+        const receiptElem = document.getElementById("receiptKwh") || document.getElementById("receiptMah");
+        if (receiptElem) receiptElem.innerText = `${(data.total_energy_kwh || 0).toFixed(2)} kWh`;
+        const rcptKm = document.getElementById("receiptKm");
+        if (rcptKm) rcptKm.innerText = `+${data.km_added || 0} KM`;
+        const rcptSav = document.getElementById("receiptSavings");
+        if (rcptSav) rcptSav.innerText = `Hemat Rp ${(data.money_saved_petrol || 0).toLocaleString('id-ID')} (${data.savings_percentage || 60}%)`;
+        document.getElementById("receiptActualCost").innerText = `Rp ${Math.round(data.actual_cost || 0).toLocaleString('id-ID')}`;
+        document.getElementById("receiptDepositPaid").innerText = `Rp ${Math.round(data.deposit_paid || 0).toLocaleString('id-ID')}`;
+        document.getElementById("receiptRefundAmount").innerText = `Rp ${Math.round(data.refund_amount || 0).toLocaleString('id-ID')}`;
         document.getElementById("receiptModal").classList.add("open");
 
         document.getElementById("activeChargingView").style.display = "none";
