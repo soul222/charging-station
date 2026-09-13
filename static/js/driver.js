@@ -529,6 +529,8 @@ async function triggerSimulatedPlug(nozzleNumber) {
   }
 }
 
+let handshakeSafetyTimer = null;
+
 function openHandshakeModal(connector) {
   const modal = document.getElementById("handshakeModal");
   if (!modal) return;
@@ -547,11 +549,39 @@ function openHandshakeModal(connector) {
   if (msg) msg.innerText = "⏳ Motor aktuator sedang mengunci pin nozzle ke port mobil...";
 
   modal.classList.add("open");
+
+  // Fallback safety timer: jika websocket telat/missed event, otomatis tutup dan lanjut dalam 7 detik
+  if (handshakeSafetyTimer) clearTimeout(handshakeSafetyTimer);
+  handshakeSafetyTimer = setTimeout(async () => {
+    if (modal.classList.contains("open")) {
+      console.warn("Handshake safety timeout reached, closing modal & advancing...");
+      await finishHandshakeManually();
+    }
+  }, 7000);
 }
 
 function closeHandshakeModal() {
+  if (handshakeSafetyTimer) {
+    clearTimeout(handshakeSafetyTimer);
+    handshakeSafetyTimer = null;
+  }
   const modal = document.getElementById("handshakeModal");
   if (modal) modal.classList.remove("open");
+}
+
+async function finishHandshakeManually() {
+  closeHandshakeModal();
+  const target = selectedConnector || pendingNozzleConnector;
+  if (target) {
+    selectedConnector = target;
+    if (pendingNozzleConnector) cancelPendingNozzle();
+    const claimed = await claimNozzle(target.id, true);
+    if (claimed) {
+      goToStep(2);
+    }
+  } else {
+    loadStationData();
+  }
 }
 
 async function handleScannedNozzle(nozzleNumber) {
@@ -1401,13 +1431,13 @@ function setupWebSocket() {
     const data = JSON.parse(event.data);
 
     if (data.event === "HANDSHAKE_STAGE") {
-      const stage = data.stage;
+      const step = data.step || (typeof data.stage === "number" ? data.stage : 1);
       for (let i = 1; i <= 4; i++) {
         const stepEl = document.getElementById(`hsStep${i}`);
         if (!stepEl) continue;
-        if (i < stage) {
+        if (i < step) {
           stepEl.className = "handshake-step-item done";
-        } else if (i === stage) {
+        } else if (i === step) {
           stepEl.className = "handshake-step-item active";
         } else {
           stepEl.className = "handshake-step-item";
@@ -1457,6 +1487,19 @@ function setupWebSocket() {
       }, 700);
     } else if (data.event === "PORT_NOZZLE_CONNECTED") {
       isPlugged = true;
+      const hsModal = document.getElementById("handshakeModal");
+      if (hsModal && hsModal.classList.contains("open")) {
+        closeHandshakeModal();
+        const matched = stationConnectors.find(c => c.id === data.connector_id) || selectedConnector;
+        if (matched) {
+          selectedConnector = matched;
+          claimNozzle(matched.id, true).then(claimed => {
+            if (claimed) {
+              goToStep(2);
+            }
+          });
+        }
+      }
       if (!activeSessionId) {
         const target = stationConnectors.find(c => c.id === data.connector_id);
 

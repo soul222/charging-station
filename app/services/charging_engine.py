@@ -290,6 +290,15 @@ class ChargingEngine:
             db.refresh(connector)
 
             await cls.broadcast({
+                "event": "HANDSHAKE_COMPLETE",
+                "connector_id": connector.id,
+                "connector_name": connector.name,
+                "status": "CONNECTED",
+                "vehicle": vehicle_data,
+                "message": f"✅ {connector.name} terhubung ke {detected_vehicle.brand} {detected_vehicle.model}!"
+            })
+
+            await cls.broadcast({
                 "event": "PORT_NOZZLE_CONNECTED",
                 "connector_id": connector.id,
                 "connector_name": connector.name,

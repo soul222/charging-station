@@ -572,7 +572,8 @@
 
   <!-- MODAL: HANDSHAKE PROTOKOL & AUTO-DETECT EV -->
   <div class="modal-overlay" id="handshakeModal">
-    <div class="modal-box" style="border: 2px solid var(--cyan-neon); box-shadow: 0 0 35px var(--cyan-glow); max-width: 440px; text-align: left;">
+    <div class="modal-box" style="border: 2px solid var(--cyan-neon); box-shadow: 0 0 35px var(--cyan-glow); max-width: 440px; text-align: left; position: relative;">
+      <button type="button" onclick="finishHandshakeManually()" title="Tutup / Lanjut" style="position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); color: #94A3B8; font-size: 1.2rem; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;">&times;</button>
       <div style="text-align: center; margin-bottom: 16px;">
         <div style="font-size: 2.2rem; margin-bottom: 4px;">🤝</div>
         <h3 style="font-size: 1.15rem; color: #fff; font-weight: 800;">Protokol Handshake SPKLU</h3>
@@ -613,9 +614,13 @@
         </div>
       </div>
 
-      <div id="handshakeFooterMsg" style="background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: #38BDF8; text-align: center; font-weight: 600;">
+      <div id="handshakeFooterMsg" style="background: rgba(0, 240, 255, 0.08); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: #38BDF8; text-align: center; font-weight: 600; margin-bottom: 10px;">
         ⏳ Menghubungkan komunikasi kendaraan...
       </div>
+
+      <button type="button" onclick="finishHandshakeManually()" class="btn btn-secondary btn-block" style="padding: 8px 10px; font-size: 0.74rem; border-color: rgba(56, 189, 248, 0.35); color: #94A3B8;">
+        ⚡ Lewati / Langsung ke Target Cas ➜
+      </button>
     </div>
   </div>
 
