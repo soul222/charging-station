@@ -308,31 +308,31 @@
             <div style="font-size: 0.74rem; color: #94A3B8; font-weight: 700; margin-bottom: 8px; text-align: center;">
               ⚡ Atau Simulasi Colok Langsung (Auto-Detect EV):
             </div>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-              <button type="button" onclick="triggerSimulatedPlug(1)" class="btn-demo-nozzle">
+            <div id="driverNozzlePickerContainer" style="display: flex; flex-direction: column; gap: 8px;">
+              <button type="button" id="btnDemoNozzle1" onclick="triggerSimulatedPlug(1)" class="btn-demo-nozzle">
                 <div>
                   <div style="font-weight: 800; color: #fff;">🔌 Nozzle 1: AC (Type 2)</div>
                   <div style="font-size: 0.7rem; color: #94A3B8;">Max 22 kW Normal Charge</div>
                 </div>
-                <div style="text-align: right;">
+                <div style="text-align: right;" id="badgeNozzleStatus1">
                   <span style="color: #C084FC; font-weight: 800; font-size: 0.78rem;">Rp 2.466/kWh</span>
                 </div>
               </button>
-              <button type="button" onclick="triggerSimulatedPlug(2)" class="btn-demo-nozzle">
+              <button type="button" id="btnDemoNozzle2" onclick="triggerSimulatedPlug(2)" class="btn-demo-nozzle">
                 <div>
                   <div style="font-weight: 800; color: #fff;">⚡ Nozzle 2: DC (CHAdeMO)</div>
                   <div style="font-size: 0.7rem; color: #94A3B8;">Max 50 kW Fast Charge</div>
                 </div>
-                <div style="text-align: right;">
+                <div style="text-align: right;" id="badgeNozzleStatus2">
                   <span style="color: #38BDF8; font-weight: 800; font-size: 0.78rem;">Rp 3.000/kWh</span>
                 </div>
               </button>
-              <button type="button" onclick="triggerSimulatedPlug(3)" class="btn-demo-nozzle">
+              <button type="button" id="btnDemoNozzle3" onclick="triggerSimulatedPlug(3)" class="btn-demo-nozzle">
                 <div>
                   <div style="font-weight: 800; color: #fff;">⚡ Nozzle 3: DC (CCS2)</div>
                   <div style="font-size: 0.7rem; color: #94A3B8;">Max 150 kW Ultra-Fast</div>
                 </div>
-                <div style="text-align: right;">
+                <div style="text-align: right;" id="badgeNozzleStatus3">
                   <span style="color: #4ADE80; font-weight: 800; font-size: 0.78rem;">Rp 3.500/kWh</span>
                 </div>
               </button>
@@ -657,13 +657,13 @@
           <span>🌐</span> Atau pilih Nozzle langsung (Simulasi):
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;">
-          <button type="button" onclick="handleScannedNozzle(1)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
+          <button type="button" id="btnQrScanModalNozzle1" onclick="handleScannedNozzle(1)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
             Nozzle 1 (AC)
           </button>
-          <button type="button" onclick="handleScannedNozzle(2)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
+          <button type="button" id="btnQrScanModalNozzle2" onclick="handleScannedNozzle(2)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
             Nozzle 2 (DC)
           </button>
-          <button type="button" onclick="handleScannedNozzle(3)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
+          <button type="button" id="btnQrScanModalNozzle3" onclick="handleScannedNozzle(3)" class="btn btn-secondary" style="padding: 7px 4px; font-size: 0.72rem; font-weight: 700;">
             Nozzle 3 (CCS)
           </button>
         </div>

@@ -501,11 +501,17 @@ async function triggerSimulatedPlug(nozzleNumber) {
     return;
   }
   if (target.status === "CHARGING") {
-    await showAppAlert(`${target.name} sedang dalam sesi pengisian aktif!`, { title: "Nozzle Sedang Digunakan", type: "warning" });
+    await showAppAlert(`Nozzle ${target.name} saat ini sedang digunakan untuk pengisian daya oleh kendaraan lain!\n\nSilakan pilih nozzle lain yang berstatus Standby.`, {
+      title: "Nozzle Sedang Digunakan",
+      type: "warning"
+    });
     return;
   }
   if (target.locked_by_user_id && target.locked_by_user_id !== USER_ID) {
-    await showAppAlert(`${target.name} sedang diklaim oleh pengguna lain!`, { title: "Nozzle Diklaim", type: "warning" });
+    await showAppAlert(`Nozzle ${target.name} saat ini sedang diklaim / terkunci oleh pengemudi lain!\n\nSilakan pilih nozzle lain yang sedang Standby.`, {
+      title: "Nozzle Terkunci",
+      type: "warning"
+    });
     return;
   }
 
@@ -521,11 +527,14 @@ async function triggerSimulatedPlug(nozzleNumber) {
     if (!res.ok) {
       const err = await res.json();
       closeHandshakeModal();
-      await showAppAlert(err.detail || "Gagal inisialisasi nozzle!", { title: "Gagal Inisialisasi", type: "error" });
+      await showAppAlert(err.detail || "Gagal inisialisasi nozzle!", { title: "Nozzle Tidak Tersedia", type: "error" });
+      await loadStationData();
+      return;
     }
   } catch (err) {
     closeHandshakeModal();
     await showAppAlert("Koneksi gagal saat handshake: " + err, { title: "Koneksi Error", type: "error" });
+    await loadStationData();
   }
 }
 
@@ -887,9 +896,73 @@ async function loadStationData() {
       const updated = stationConnectors.find(c => c.id === selectedConnector.id);
       if (updated) selectedConnector = updated;
     }
+    updateNozzlePickersUI();
   } catch (err) {
     console.error("Gagal load station:", err);
   }
+}
+
+function updateNozzlePickersUI() {
+  if (!stationConnectors || stationConnectors.length === 0) return;
+
+  stationConnectors.forEach(c => {
+    const btn = document.getElementById(`btnDemoNozzle${c.connector_number}`);
+    const badge = document.getElementById(`badgeNozzleStatus${c.connector_number}`);
+    const modalBtn = document.getElementById(`btnQrScanModalNozzle${c.connector_number}`);
+    if (!btn) return;
+
+    const isCharging = c.status === "CHARGING";
+    const isLockedByOther = !!(c.locked_by_user_id && c.locked_by_user_id !== USER_ID);
+
+    if (isCharging) {
+      btn.style.opacity = "0.45";
+      btn.style.cursor = "not-allowed";
+      btn.style.borderColor = "rgba(239, 68, 68, 0.4)";
+      btn.style.background = "rgba(239, 68, 68, 0.08)";
+      if (badge) {
+        badge.innerHTML = `<span class="status-pill busy" style="font-size:0.65rem; padding: 2px 7px;">⚡ SEDANG MENGISI</span>`;
+      }
+      if (modalBtn) {
+        modalBtn.disabled = true;
+        modalBtn.style.opacity = "0.45";
+        modalBtn.style.borderColor = "rgba(239, 68, 68, 0.5)";
+        modalBtn.style.cursor = "not-allowed";
+        modalBtn.title = "Nozzle sedang aktif mengisi kendaraan lain";
+      }
+    } else if (isLockedByOther) {
+      btn.style.opacity = "0.55";
+      btn.style.cursor = "not-allowed";
+      btn.style.borderColor = "rgba(245, 158, 11, 0.4)";
+      btn.style.background = "rgba(245, 158, 11, 0.08)";
+      if (badge) {
+        badge.innerHTML = `<span class="status-pill warning" style="font-size:0.65rem; padding: 2px 7px;">🔒 TERKUNCI</span>`;
+      }
+      if (modalBtn) {
+        modalBtn.disabled = true;
+        modalBtn.style.opacity = "0.5";
+        modalBtn.style.borderColor = "rgba(245, 158, 11, 0.5)";
+        modalBtn.style.cursor = "not-allowed";
+        modalBtn.title = "Nozzle sedang diklaim oleh pengguna lain";
+      }
+    } else {
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+      btn.style.borderColor = "";
+      btn.style.background = "";
+      const rateColors = { 1: "#C084FC", 2: "#38BDF8", 3: "#4ADE80" };
+      const color = rateColors[c.connector_number] || "#38BDF8";
+      if (badge) {
+        badge.innerHTML = `<span style="color: ${color}; font-weight: 800; font-size: 0.78rem;">Rp ${c.tariff_per_kwh.toLocaleString("id-ID")}/kWh</span>`;
+      }
+      if (modalBtn) {
+        modalBtn.disabled = false;
+        modalBtn.style.opacity = "1";
+        modalBtn.style.borderColor = "";
+        modalBtn.style.cursor = "pointer";
+        modalBtn.title = "";
+      }
+    }
+  });
 }
 
 // -------------------------------------------------------------
@@ -1629,6 +1702,11 @@ function setupWebSocket() {
         document.getElementById("wizardStepHeader").style.display = "flex";
         goToStep(1);
         loadUserData();
+      }
+    } else if (data.event === "SESSION_STARTED") {
+      loadStationData();
+      if (selectedConnector && selectedConnector.id === data.connector_id && currentStep === 1 && activeSessionId !== data.session_id) {
+        selectedConnector = null;
       }
     } else if (data.event === "NOZZLE_CLAIMED" || data.event === "NOZZLE_RELEASED") {
       loadStationData();

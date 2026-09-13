@@ -382,5 +382,44 @@ class TestAuthAndSessionIsolation(unittest.TestCase):
         self.assertEqual(self.c1.status, "AVAILABLE")
         self.assertIsNone(self.c1.locked_by_user_id)
 
+    def test_plug_nozzle_exclusivity_between_two_users(self):
+        import asyncio
+        self.c1.status = "AVAILABLE"
+        self.c1.locked_by_user_id = None
+        self.db.commit()
+
+        # User 1 plugs into c1
+        res1 = asyncio.run(api_station.plug_nozzle(
+            self.c1.id,
+            api_station.PlugNozzleRequest(user_id=self.user1.id),
+            db=self.db
+        ))
+        self.assertEqual(res1["status"], "HANDSHAKING")
+        self.db.refresh(self.c1)
+        self.assertEqual(self.c1.status, "CONNECTED")
+        self.assertEqual(self.c1.locked_by_user_id, self.user1.id)
+
+        # User 2 tries to plug into c1 while locked by User 1 -> 409
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(api_station.plug_nozzle(
+                self.c1.id,
+                api_station.PlugNozzleRequest(user_id=self.user2.id),
+                db=self.db
+            ))
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertIn("sedang digunakan oleh Budi Santoso", ctx.exception.detail)
+
+        # When c1 is CHARGING, User 2 also rejected -> 409
+        self.c1.status = "CHARGING"
+        self.db.commit()
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(api_station.plug_nozzle(
+                self.c1.id,
+                api_station.PlugNozzleRequest(user_id=self.user2.id),
+                db=self.db
+            ))
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertIn("sedang dalam proses pengisian aktif", ctx.exception.detail)
+
 if __name__ == "__main__":
     unittest.main()

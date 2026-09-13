@@ -286,6 +286,8 @@ class ChargingEngine:
 
             # Stage 5: Handshake Complete -> Connected
             connector.status = "CONNECTED"
+            if user_id:
+                connector.locked_by_user_id = user_id
             db.commit()
             db.refresh(connector)
 
@@ -573,6 +575,13 @@ class ChargingEngine:
                     **final_layman
                 })
 
+                await cls.broadcast({
+                    "event": "NOZZLE_RELEASED",
+                    "station_id": session.station_id,
+                    "connector_id": session.connector_id,
+                    "connector_name": connector.name
+                })
+
         except Exception:
             try:
                 db.refresh(session)
@@ -585,6 +594,12 @@ class ChargingEngine:
                     StationManager.simulated_plugged_ids.discard(session.connector_id)
                     BillingService.settle_and_refund(db, session)
                     db.commit()
+                    await cls.broadcast({
+                        "event": "NOZZLE_RELEASED",
+                        "station_id": session.station_id,
+                        "connector_id": session.connector_id,
+                        "connector_name": connector.name
+                    })
             except Exception:
                 pass
         finally:

@@ -36,8 +36,49 @@ async def plug_nozzle(connector_id: int, req: Optional[PlugNozzleRequest] = None
     connector = db.query(models.Connector).filter(models.Connector.id == connector_id).first()
     if not connector:
         raise HTTPException(status_code=404, detail="Konektor tidak ditemukan.")
+    
+    # 1. Cek apakah nozzle sedang aktif charging
     if connector.status == "CHARGING":
-        raise HTTPException(status_code=400, detail="Konektor sedang dalam proses pengisian!")
+        raise HTTPException(status_code=409, detail=f"❌ {connector.name} sedang dalam proses pengisian aktif!")
+
+    # 2. Cek apakah nozzle sedang diklaim / digunakan pengguna lain
+    if connector.locked_by_user_id and connector.locked_by_user_id != uid:
+        other_user = db.query(models.User).filter(models.User.id == connector.locked_by_user_id).first()
+        other_name = other_user.full_name if other_user else "pengguna lain"
+        raise HTTPException(
+            status_code=409,
+            detail=f"❌ {connector.name} sedang digunakan oleh {other_name}. Silakan pilih nozzle lain!"
+        )
+
+    # 3. Kunci nozzle langsung ke user ini saat colok / inisialisasi dimulai
+    if uid:
+        prev_claimed = db.query(models.Connector).filter(
+            models.Connector.locked_by_user_id == uid,
+            models.Connector.id != connector_id
+        ).all()
+        for pc in prev_claimed:
+            pc.locked_by_user_id = None
+            if pc.status == "CONNECTED":
+                pc.status = "AVAILABLE"
+            await ChargingEngine.broadcast({
+                "event": "NOZZLE_RELEASED",
+                "station_id": pc.station_id,
+                "connector_id": pc.id,
+                "connector_name": pc.name
+            })
+
+        connector.locked_by_user_id = uid
+        connector.status = "CONNECTED"
+        db.commit()
+        db.refresh(connector)
+
+        await ChargingEngine.broadcast({
+            "event": "NOZZLE_CLAIMED",
+            "station_id": connector.station_id,
+            "connector_id": connector.id,
+            "connector_name": connector.name,
+            "locked_by_user_id": uid
+        })
 
     # Mark connector simulated so ADB loop doesn't reset it
     StationManager.simulated_plugged_ids.add(connector_id)
@@ -49,7 +90,8 @@ async def plug_nozzle(connector_id: int, req: Optional[PlugNozzleRequest] = None
         "status": "HANDSHAKING",
         "message": f"Memulai inisialisasi handshake protokol dengan {connector.name}...",
         "connector_id": connector.id,
-        "connector_name": connector.name
+        "connector_name": connector.name,
+        "locked_by_user_id": connector.locked_by_user_id
     }
 
 @router.post("/connector/{connector_id}/unplug")
@@ -268,6 +310,7 @@ async def start_charging(req: schemas.StartChargingRequest, db: Session = Depend
     )
     db.add(new_session)
     connector.status = "CHARGING"
+    connector.locked_by_user_id = user.id
     db.commit()
     db.refresh(new_session)
 
